@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Keep Authorization header available for PHP (JWT auth endpoints).
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# If the requested resource does not exist, route to index.php.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]

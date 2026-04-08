@@ -1,1 +1,0 @@
-console.log("MandalArt oldal betöltve");
