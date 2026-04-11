@@ -49,3 +49,21 @@ function assert_register_allowed_or_exit(): void
     }
     rate_limit_record_hit('register', $ip);
 }
+
+function assert_contact_guest_allowed_or_exit(): void
+{
+    $ip  = get_request_ip();
+    $max = (int) MANDALART_CONTACT_GUEST_RATE_MAX_PER_IP;
+    $win = (int) MANDALART_CONTACT_GUEST_RATE_WINDOW_SEC;
+    if ($max < 1) {
+        $max = 1;
+    }
+    if ($win < 60) {
+        $win = 60;
+    }
+    $n = rate_limit_count_recent('contact_guest', $ip, $win);
+    if ($n >= $max) {
+        send_json('rate_limited', 429);
+    }
+    rate_limit_record_hit('contact_guest', $ip);
+}

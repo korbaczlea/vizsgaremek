@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
 
 export default function Gallery() {
   const [images, setImages] = useState([]);
@@ -77,6 +78,11 @@ export default function Gallery() {
 
   return (
     <main style={{ padding: 40 }}>
+      <PageHelmet
+        title="Gallery"
+        description="Browse the MandalArt gallery — handmade mandalas and decorative pieces."
+        path="/Gallery"
+      />
       <h2>Gallery</h2>
 
       {error && <p style={{ color: "#b00020" }}>{error}</p>}

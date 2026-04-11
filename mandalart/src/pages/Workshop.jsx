@@ -1,11 +1,56 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
+
+function toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Monday = 0 … Sunday = 6 */
+function mondayIndex(d) {
+  return (d.getDay() + 6) % 7;
+}
+
+function startOfWeekMonday(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - mondayIndex(x));
+  return x;
+}
+
+function monthGridCells(monthAnchor) {
+  const y = monthAnchor.getFullYear();
+  const m = monthAnchor.getMonth();
+  const first = new Date(y, m, 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - mondayIndex(first));
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const c = new Date(start);
+    c.setDate(start.getDate() + i);
+    cells.push(c);
+  }
+  return cells;
+}
+
+function addMonths(d, delta) {
+  const x = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  return x;
+}
 
 export default function Workshop() {
-  const [sessions, setSessions] = useState([]);
+  const [calendarSessions, setCalendarSessions] = useState([]);
+  const [deadlineHours, setDeadlineHours] = useState(48);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [waitlistSuccess, setWaitlistSuccess] = useState("");
+
+  const [viewMode, setViewMode] = useState("month"); // "month" | "week"
+  const [monthAnchor, setMonthAnchor] = useState(() => new Date());
+  const [weekCursor, setWeekCursor] = useState(() => startOfWeekMonday(new Date()));
 
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState("");
@@ -24,13 +69,14 @@ export default function Workshop() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadSessions() {
+    async function loadCalendar() {
       try {
         setLoading(true);
         setError("");
         setSuccess("");
+        setWaitlistSuccess("");
 
-        const res = await fetch(`${API_BASE_URL}/api/get_workshop_sessions`);
+        const res = await fetch(`${API_BASE_URL}/api/get_workshop_calendar`);
         const text = await res.text();
         let data = {};
         try {
@@ -45,18 +91,25 @@ export default function Workshop() {
         }
 
         if (!res.ok || data.status !== "success") {
-          if (!cancelled) setError("Failed to load workshop sessions.");
+          if (!cancelled) setError("Failed to load workshop calendar.");
           return;
         }
 
         const list = Array.isArray(data.sessions) ? data.sessions : [];
         if (!cancelled) {
-          setSessions(list);
+          setCalendarSessions(list);
+          if (typeof data.change_deadline_hours === "number") {
+            setDeadlineHours(data.change_deadline_hours);
+          }
           const dates = Array.from(new Set(list.map((s) => s.booking_date))).sort();
-          const firstDate = dates[0] || "";
+          const bookable = list.filter((s) => !s.is_full);
+          const bookableDates = Array.from(new Set(bookable.map((s) => s.booking_date))).sort();
+          const firstDate = bookableDates[0] || dates[0] || "";
           setSelectedDate(firstDate);
           const firstSession = list.find((s) => s.booking_date === firstDate);
-          setSelectedSessionId(firstSession ? String(firstSession.id) : "");
+          setSelectedSessionId(
+            firstSession && !firstSession.is_full ? String(firstSession.id) : ""
+          );
         }
       } catch (e) {
         console.error(e);
@@ -70,25 +123,38 @@ export default function Workshop() {
       }
     }
 
-    loadSessions();
+    loadCalendar();
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const sessionsByDate = useMemo(() => {
+    const m = {};
+    for (const s of calendarSessions) {
+      if (!m[s.booking_date]) m[s.booking_date] = [];
+      m[s.booking_date].push(s);
+    }
+    return m;
+  }, [calendarSessions]);
+
   const dateOptions = useMemo(() => {
-    const dates = Array.from(new Set(sessions.map((s) => s.booking_date))).sort();
-    return dates;
-  }, [sessions]);
+    return Array.from(new Set(calendarSessions.map((s) => s.booking_date))).sort();
+  }, [calendarSessions]);
 
   const sessionsForSelectedDate = useMemo(() => {
-    return sessions.filter((s) => s.booking_date === selectedDate);
-  }, [sessions, selectedDate]);
+    return calendarSessions.filter((s) => s.booking_date === selectedDate);
+  }, [calendarSessions, selectedDate]);
+
+  const selectedSession = useMemo(() => {
+    return calendarSessions.find((s) => String(s.id) === String(selectedSessionId)) || null;
+  }, [calendarSessions, selectedSessionId]);
 
   useEffect(() => {
     if (!selectedDate) return;
     if (!selectedSessionId) {
-      const first = sessionsForSelectedDate[0];
+      const firstOpen = sessionsForSelectedDate.find((s) => !s.is_full);
+      const first = firstOpen || sessionsForSelectedDate[0];
       setSelectedSessionId(first ? String(first.id) : "");
     }
   }, [selectedDate, sessionsForSelectedDate, selectedSessionId]);
@@ -105,9 +171,10 @@ export default function Workshop() {
     return "";
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmitBook = async (e) => {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
     setSuccess("");
+    setWaitlistSuccess("");
 
     const msg = validate();
     if (msg) {
@@ -118,7 +185,7 @@ export default function Workshop() {
 
     try {
       const payload = {
-        session_id: selectedSessionId,
+        session_id: Number(selectedSessionId),
         first_name: form.firstName,
         last_name: form.lastName,
         email: form.email,
@@ -143,7 +210,7 @@ export default function Workshop() {
       }
 
       if (data.status === "slot_already_booked") {
-        setError("This time slot is already fully booked. Please choose another.");
+        setError("This time slot just filled up. You can join the waitlist below.");
         return;
       }
       if (!res.ok || data.status !== "success") {
@@ -156,6 +223,12 @@ export default function Workshop() {
         "Booking successful! We have received your request and will confirm it by email."
       );
       setForm({ firstName: "", lastName: "", email: "", phone: "" });
+      const calRes = await fetch(`${API_BASE_URL}/api/get_workshop_calendar`);
+      const calText = await calRes.text();
+      const calData = calText ? JSON.parse(calText) : {};
+      if (calRes.ok && calData.status === "success" && Array.isArray(calData.sessions)) {
+        setCalendarSessions(calData.sessions);
+      }
     } catch (err) {
       console.error(err);
       setError(
@@ -164,8 +237,101 @@ export default function Workshop() {
     }
   };
 
+  const onSubmitWaitlist = async (e) => {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    setWaitlistSuccess("");
+    setSuccess("");
+
+    const msg = validate();
+    if (msg) {
+      setError(msg);
+      return;
+    }
+    setError("");
+
+    try {
+      const payload = {
+        session_id: Number(selectedSessionId),
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email,
+        phone: form.phone,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/workshop_waitlist_join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        setError(
+          "Backend response is not valid JSON. Please check that XAMPP Apache is running."
+        );
+        return;
+      }
+
+      if (data.status === "session_not_full") {
+        setError("This slot has space again — use “Request booking” instead.");
+        return;
+      }
+      if (data.status === "already_on_waitlist") {
+        setError("You are already on the waitlist for this session.");
+        return;
+      }
+      if (!res.ok || data.status !== "success") {
+        setError("Could not join waitlist. Please try again.");
+        return;
+      }
+
+      setError("");
+      setWaitlistSuccess(
+        "You are on the waitlist. We will email you if a place becomes available."
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Cannot connect to backend. Please check that XAMPP Apache and MySQL are running."
+      );
+    }
+  };
+
+  const monthCells = useMemo(() => monthGridCells(monthAnchor), [monthAnchor]);
+  const weekCells = useMemo(() => {
+    const out = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekCursor);
+      d.setDate(weekCursor.getDate() + i);
+      out.push(d);
+    }
+    return out;
+  }, [weekCursor]);
+
+  const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const onCalendarDayClick = (d) => {
+    if (d.getDay() !== 6) return;
+    const iso = toISODate(d);
+    if (!sessionsByDate[iso]) return;
+    setSelectedDate(iso);
+    const firstOpen = calendarSessions.find((s) => s.booking_date === iso && !s.is_full);
+    const first = firstOpen || calendarSessions.find((s) => s.booking_date === iso);
+    setSelectedSessionId(first ? String(first.id) : "");
+  };
+
+  const monthTitle = monthAnchor.toLocaleString("en-GB", { month: "long", year: "numeric" });
+
   return (
     <main className="workshop-wrap">
+      <PageHelmet
+        title="Workshop booking"
+        description="Book a Saturday MandalArt workshop session. Reserve your place online."
+        path="/Workshop"
+      />
       <section className="workshop-card">
         <div className="workshop-media">
           <img src="/images/workshop.png" alt="MandalArt workshop" />
@@ -174,10 +340,132 @@ export default function Workshop() {
         <div className="workshop-content">
           <h2>Workshop booking</h2>
           <p className="workshop-sub">
-            Book a workshop session for Saturdays only. You can book up to <b>3 weeks</b> in advance.
+            Book a workshop session for <b>Saturdays</b> only. Calendar shows free and full slots.
+            Changes or cancellations are allowed at least <b>{deadlineHours} hours</b> before the
+            session starts (manage in your Profile).
           </p>
 
-          <form className="workshop-form" onSubmit={onSubmit}>
+          <div className="workshop-calToolbar">
+            <div className="workshop-calToggle">
+              <button
+                type="button"
+                className={viewMode === "month" ? "is-active" : ""}
+                onClick={() => setViewMode("month")}
+              >
+                Month
+              </button>
+              <button
+                type="button"
+                className={viewMode === "week" ? "is-active" : ""}
+                onClick={() => setViewMode("week")}
+              >
+                Week
+              </button>
+            </div>
+            {viewMode === "month" ? (
+              <div className="workshop-calNav">
+                <button type="button" onClick={() => setMonthAnchor((m) => addMonths(m, -1))}>
+                  ←
+                </button>
+                <span className="workshop-calTitle">{monthTitle}</span>
+                <button type="button" onClick={() => setMonthAnchor((m) => addMonths(m, 1))}>
+                  →
+                </button>
+              </div>
+            ) : (
+              <div className="workshop-calNav">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const x = new Date(weekCursor);
+                    x.setDate(x.getDate() - 7);
+                    setWeekCursor(startOfWeekMonday(x));
+                  }}
+                >
+                  ←
+                </button>
+                <span className="workshop-calTitle">
+                  Week of {toISODate(weekCursor)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const x = new Date(weekCursor);
+                    x.setDate(x.getDate() + 7);
+                    setWeekCursor(startOfWeekMonday(x));
+                  }}
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {loading ? (
+            <p className="workshop-muted">Loading calendar…</p>
+          ) : (
+            <div className="workshop-calendar">
+              <div className="workshop-calWeekdays">
+                {weekdayLabels.map((w) => (
+                  <div key={w} className="workshop-calWeekday">
+                    {w}
+                  </div>
+                ))}
+              </div>
+              <div className="workshop-calGrid">
+                {(viewMode === "month" ? monthCells : weekCells).map((d, idx) => {
+                  const iso = toISODate(d);
+                  const inMonth =
+                    viewMode === "week" ||
+                    (d.getMonth() === monthAnchor.getMonth() &&
+                      d.getFullYear() === monthAnchor.getFullYear());
+                  const isSat = d.getDay() === 6;
+                  const daySessions = sessionsByDate[iso] || [];
+                  const hasWorkshop = daySessions.length > 0;
+                  const allFull = hasWorkshop && daySessions.every((s) => s.is_full);
+                  const hasFree = hasWorkshop && daySessions.some((s) => !s.is_full);
+
+                  let cellClass = "workshop-calCell";
+                  if (!inMonth && viewMode === "month") cellClass += " is-other-month";
+                  if (isSat) cellClass += " is-saturday";
+                  if (hasWorkshop) cellClass += " has-workshop";
+                  if (hasFree) cellClass += " has-free";
+                  if (hasWorkshop && allFull) cellClass += " is-full";
+
+                  return (
+                    <button
+                      key={`${iso}-${idx}`}
+                      type="button"
+                      className={cellClass}
+                      disabled={!hasWorkshop || !isSat}
+                      onClick={() => onCalendarDayClick(d)}
+                      title={
+                        hasWorkshop && isSat
+                          ? allFull
+                            ? "Full — waitlist available"
+                            : "Spaces available"
+                          : undefined
+                      }
+                    >
+                      <span className="workshop-calDayNum">{d.getDate()}</span>
+                      {hasWorkshop && isSat ? (
+                        <span className="workshop-calDots" aria-hidden>
+                          {daySessions.map((s) => (
+                            <span
+                              key={s.id}
+                              className={s.is_full ? "dot full" : "dot free"}
+                            />
+                          ))}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <form className="workshop-form" onSubmit={onSubmitBook}>
             <div className="workshop-row">
               <div className="workshop-field">
                 <label>Saturday date*</label>
@@ -190,12 +478,14 @@ export default function Workshop() {
                     value={selectedDate}
                     onChange={(e) => {
                       setSelectedDate(e.target.value);
-                      const first = sessions.find((s) => s.booking_date === e.target.value);
-                      setSelectedSessionId(first ? String(first.id) : "");
+                      const list = calendarSessions.filter((s) => s.booking_date === e.target.value);
+                      const fo = list.find((s) => !s.is_full);
+                      const f = fo || list[0];
+                      setSelectedSessionId(f ? String(f.id) : "");
                     }}
                   >
                     {dateOptions.length === 0 ? (
-                      <option value="">No available Saturdays in the next 3 weeks</option>
+                      <option value="">No Saturday sessions in the calendar window</option>
                     ) : (
                       dateOptions.map((d) => (
                         <option key={d} value={d}>
@@ -217,7 +507,8 @@ export default function Workshop() {
                   <option value="">Select…</option>
                   {sessionsForSelectedDate.map((s) => (
                     <option key={s.id} value={String(s.id)}>
-                      {s.start_time} - {s.end_time}
+                      {s.start_time} – {s.end_time}
+                      {s.is_full ? " (full)" : ` (${s.remaining} left)`}
                     </option>
                   ))}
                 </select>
@@ -269,13 +560,30 @@ export default function Workshop() {
 
             {error && <div className="workshop-error">{error}</div>}
             {success && <div className="workshop-success">{success}</div>}
+            {waitlistSuccess && <div className="workshop-success">{waitlistSuccess}</div>}
 
-            <button className="workshop-btn" type="submit">
-              Request booking
-            </button>
+            <div className="workshop-actions">
+              <button
+                className="workshop-btn"
+                type="submit"
+                disabled={!selectedSession || selectedSession.is_full}
+              >
+                Request booking
+              </button>
+              {selectedSession?.is_full ? (
+                <button
+                  type="button"
+                  className="workshop-btn workshop-btn--secondary"
+                  onClick={() => void onSubmitWaitlist()}
+                >
+                  Join waitlist for this slot
+                </button>
+              ) : null}
+            </div>
 
             <p className="workshop-note">
-              After submitting, we will confirm your booking by email.
+              After submitting, we will confirm by email. Full slots: join the waitlist — if someone
+              cancels, the next person on the list is offered the place automatically.
             </p>
           </form>
         </div>

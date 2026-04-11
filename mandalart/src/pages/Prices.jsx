@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PageHelmet from "../components/PageHelmet";
 
 export default function Prices() {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -29,6 +30,11 @@ export default function Prices() {
 
   return (
     <main style={{ maxWidth: 900, margin: "0 auto", padding: "30px 20px" }}>
+      <PageHelmet
+        title="Prices"
+        description="MandalArt mandala prices — sizes from 12 cm to wall clock. Custom quotes on request."
+        path="/Prices"
+      />
       <section style={{ background: "white", borderRadius: 16, padding: 28, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
         <h2 style={{ marginTop: 0 }}>Mandala prices</h2>
 

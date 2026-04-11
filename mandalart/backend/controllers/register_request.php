@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../services/register_service.php';
 require_once __DIR__ . '/../services/rate_limit_service.php';
+require_once __DIR__ . '/../core/jwt.php';
 
 $raw  = file_get_contents('php://input');
 $data = json_decode($raw, true);
@@ -32,4 +33,9 @@ assert_register_allowed_or_exit();
 
 $result = process_register($name, $email, $password, $phone);
 
-send_json($result['status'], $result['code']);
+if ($result['status'] !== 'success') {
+    send_json($result['status'], $result['code']);
+}
+
+$token = JWT::generate_token($email);
+send_json('success', 200, ['token' => $token]);

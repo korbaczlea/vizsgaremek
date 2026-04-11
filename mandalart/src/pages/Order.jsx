@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
 
 export default function Order({ loggedIn = false }) {
   const { addToCart } = useCart();
@@ -68,6 +69,11 @@ export default function Order({ loggedIn = false }) {
 
   return (
     <main className="order-wrap">
+      <PageHelmet
+        title="Order"
+        description="Order handmade MandalArt mandalas — browse products and checkout with your account."
+        path="/Order"
+      />
       <h2 className="order-title">Order products</h2>
       <p className="order-subtitle">
         Browse available handmade mandalas and add them to your cart.

@@ -3,48 +3,63 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/user_model.php';
 
-function get_workshop_sessions_next3weeks(): array
+function get_workshop_sessions_sql_between(string $fromStr, string $toStr): array
 {
     $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT
+            ws.id,
+            ws.workshop_id,
+            ws.start_datetime,
+            ws.end_datetime,
+            ws.available_spots,
+            w.title AS workshop_title
+         FROM workshop_sessions ws
+         JOIN workshops w ON w.id = ws.workshop_id
+         WHERE w.is_active = 1
+           AND ws.start_datetime >= :from
+           AND ws.start_datetime < :to
+           AND WEEKDAY(ws.start_datetime) = 5
+         ORDER BY ws.start_datetime ASC'
+    );
+    $stmt->execute([':from' => $fromStr, ':to' => $toStr]);
+    return $stmt->fetchAll() ?: [];
+}
 
+function get_workshop_sessions_next_days(int $days): array
+{
     $from = new DateTime('today midnight');
     $to = clone $from;
-    $to->modify('+21 days');
+    $to->modify('+' . max(1, $days) . ' days');
 
-    try {
-        $stmt = $pdo->prepare('CALL get_workshop_sessions_next3weeks_proc(:from_dt, :to_dt)');
-        $stmt->execute([
-            ':from_dt' => $from->format('Y-m-d H:i:s'),
-            ':to_dt'   => $to->format('Y-m-d H:i:s'),
-        ]);
-        $rows = $stmt->fetchAll() ?: [];
-        while ($stmt->nextRowset()) {
-            // consume extra result sets if any
+    $fromStr = $from->format('Y-m-d H:i:s');
+    $toStr = $to->format('Y-m-d H:i:s');
+
+    // Proc is tuned for ~3 weeks; for longer calendar ranges use SQL only.
+    if ($days === 21) {
+        $pdo = get_db();
+        try {
+            $stmt = $pdo->prepare('CALL get_workshop_sessions_next3weeks_proc(:from_dt, :to_dt)');
+            $stmt->execute([
+                ':from_dt' => $fromStr,
+                ':to_dt'   => $toStr,
+            ]);
+            $rows = $stmt->fetchAll() ?: [];
+            while ($stmt->nextRowset()) {
+                // consume extra result sets if any
+            }
+            return $rows;
+        } catch (Throwable $e) {
+            // fall through to SQL
         }
-        return $rows;
-    } catch (Throwable $e) {
-        $stmt = $pdo->prepare(
-            'SELECT
-                ws.id,
-                ws.workshop_id,
-                ws.start_datetime,
-                ws.end_datetime,
-                ws.available_spots,
-                w.title AS workshop_title
-             FROM workshop_sessions ws
-             JOIN workshops w ON w.id = ws.workshop_id
-             WHERE w.is_active = 1
-               AND ws.start_datetime >= :from
-               AND ws.start_datetime < :to
-               AND WEEKDAY(ws.start_datetime) = 5
-             ORDER BY ws.start_datetime ASC'
-        );
-        $stmt->execute([
-            ':from' => $from->format('Y-m-d H:i:s'),
-            ':to'   => $to->format('Y-m-d H:i:s'),
-        ]);
-        return $stmt->fetchAll() ?: [];
     }
+
+    return get_workshop_sessions_sql_between($fromStr, $toStr);
+}
+
+function get_workshop_sessions_next3weeks(): array
+{
+    return get_workshop_sessions_next_days(21);
 }
 
 function get_workshop_session_by_id(int $id): ?array
@@ -262,5 +277,55 @@ function admin_delete_workshop_session(int $id): bool
     $pdo = get_db();
     $stmt = $pdo->prepare('DELETE FROM workshop_sessions WHERE id = :id');
     return $stmt->execute([':id' => $id]);
+}
+
+/**
+ * Update status on a row in `bookings` (session-based workshop participant).
+ */
+function admin_update_session_booking_status(int $bookingId, string $status): bool
+{
+    $allowed = ['pending', 'confirmed', 'cancelled', 'attended'];
+    if ($bookingId <= 0 || !in_array($status, $allowed, true)) {
+        return false;
+    }
+
+    $pdo = get_db();
+    $chk = $pdo->prepare('SELECT id FROM bookings WHERE id = :id LIMIT 1');
+    $chk->execute([':id' => $bookingId]);
+    if (!$chk->fetch()) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare('UPDATE bookings SET status = :st WHERE id = :id');
+    $stmt->execute([':st' => $status, ':id' => $bookingId]);
+
+    return true;
+}
+
+/**
+ * Delete a row from `bookings`. Returns session_id if deleted, null if not found.
+ */
+function admin_delete_session_booking(int $bookingId): ?int
+{
+    if ($bookingId <= 0) {
+        return null;
+    }
+
+    $pdo = get_db();
+    $stmt = $pdo->prepare('SELECT session_id FROM bookings WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $bookingId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+
+    $sessionId = (int) $row['session_id'];
+    $del = $pdo->prepare('DELETE FROM bookings WHERE id = :id');
+    $del->execute([':id' => $bookingId]);
+    if ($del->rowCount() === 0) {
+        return null;
+    }
+
+    return $sessionId;
 }
 

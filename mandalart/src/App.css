@@ -311,6 +311,11 @@ h1 {
     top: 15px;
     cursor: pointer;
     transition: color 0.3s;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+    font-family: inherit;
 }
 
 .close:hover,
@@ -1126,6 +1131,187 @@ h1 {
     text-align: center;
 }
 
+.workshop-muted {
+    color: #666;
+    font-size: 14px;
+    margin: 8px 0;
+}
+
+.workshop-calToolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.workshop-calToggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.workshop-calToggle button {
+    border: none;
+    background: transparent;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 700;
+    color: #555;
+    font-family: inherit;
+}
+
+.workshop-calToggle button.is-active {
+    background: rgba(185, 108, 156, 0.2);
+    color: var(--accent);
+}
+
+.workshop-calNav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.workshop-calNav button {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.workshop-calTitle {
+    font-weight: 800;
+    color: #333;
+    min-width: 140px;
+    text-align: center;
+}
+
+.workshop-calendar {
+    margin-bottom: 18px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.workshop-calWeekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.workshop-calGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.workshop-calCell {
+    min-height: 52px;
+    border: 1px solid #e8e0e8;
+    border-radius: 10px;
+    background: #faf8fa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 4px 2px;
+    cursor: default;
+    font-family: inherit;
+    color: #333;
+}
+
+.workshop-calCell:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.workshop-calCell.is-other-month {
+    opacity: 0.35;
+}
+
+.workshop-calCell.is-saturday.has-workshop {
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.workshop-calCell.has-free {
+    border-color: rgba(46, 125, 50, 0.45);
+    background: rgba(232, 245, 233, 0.65);
+}
+
+.workshop-calCell.is-full.has-workshop {
+    border-color: rgba(183, 28, 28, 0.35);
+    background: rgba(255, 235, 238, 0.55);
+}
+
+.workshop-calDayNum {
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.workshop-calDots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.workshop-calDots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.workshop-calDots .dot.free {
+    background: #2e7d32;
+}
+
+.workshop-calDots .dot.full {
+    background: #c62828;
+}
+
+.workshop-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.workshop-actions .workshop-btn {
+    width: 100%;
+}
+
+.workshop-btn--secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+}
+
+.workshop-btn--secondary:hover {
+    background: rgba(185, 108, 156, 0.1);
+}
+
+.workshop-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .workshop-extra {
     max-width: 1100px;
     margin: 22px auto 0;
@@ -1603,6 +1789,89 @@ h1 {
     padding: 10px;
     color: #333;
     line-height: 1.6;
+}
+
+.profile-bookingItem--cancelled {
+    opacity: 0.7;
+    border-style: dashed;
+}
+
+.profile-bookingActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.profile-btn--ghost {
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid rgba(185, 108, 156, 0.45);
+}
+
+.profile-btn--ghost:hover {
+    background: rgba(185, 108, 156, 0.08);
+}
+
+.profile-btn--danger {
+    background: #b00020;
+}
+
+.profile-btn--danger:hover {
+    background: #8c001a;
+}
+
+.profile-modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.profile-modal {
+    background: #fff;
+    border-radius: 16px;
+    padding: 22px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.profile-modal h3 {
+    margin: 0 0 10px;
+}
+
+.profile-fieldLabel {
+    display: block;
+    margin: 12px 0 6px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #444;
+}
+
+.profile-select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e6e0da;
+    border-radius: 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.profile-modalActions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+.profile-modalActions .profile-btn {
+    width: auto;
 }
 
 

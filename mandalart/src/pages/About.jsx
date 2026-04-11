@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
 import { defaultAboutContent } from "../data/sitePageDefaults";
 
 export default function About() {
@@ -30,6 +31,11 @@ export default function About() {
 
   return (
     <main style={{ maxWidth: 1000, margin: "0 auto", padding: "30px 20px" }}>
+      <PageHelmet
+        title="About"
+        description="Learn about MandalArt — our story, craft, and passion for handmade mandala art."
+        path="/About"
+      />
       <section
         style={{
           background: "white",

@@ -79,6 +79,7 @@ function profile_list_bookings(string $email): array
     $stmt = $pdo->prepare(
         'SELECT
             b.id,
+            b.session_id,
             b.status,
             b.num_participants,
             b.total_price,
@@ -97,5 +98,16 @@ function profile_list_bookings(string $email): array
         ':uid' => $userId,
     ]);
 
-    return $stmt->fetchAll() ?: [];
+    $rows = $stmt->fetchAll() ?: [];
+    require_once __DIR__ . '/../config/workshop_settings.php';
+    foreach ($rows as &$row) {
+        $row['session_id'] = (int) ($row['session_id'] ?? 0);
+        $row['can_modify'] = workshop_user_may_change_booking(
+            (string) ($row['status'] ?? ''),
+            isset($row['start_datetime']) ? (string) $row['start_datetime'] : null
+        );
+    }
+    unset($row);
+
+    return $rows;
 }

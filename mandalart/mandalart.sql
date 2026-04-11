@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Gép: 127.0.0.1
--- Létrehozás ideje: 2026. Ápr 11. 18:15
+-- Létrehozás ideje: 2026. Ápr 11. 21:18
 -- Kiszolgáló verziója: 10.4.32-MariaDB
 -- PHP verzió: 8.2.12
 
@@ -127,7 +127,7 @@ CREATE TABLE `bookings` (
 INSERT INTO `bookings` (`id`, `user_id`, `session_id`, `guest_name`, `guest_email`, `guest_phone`, `status`, `num_participants`, `total_price`, `created_at`) VALUES
 (3, 4, 2, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'pending', 1, 0.00, '2026-04-01 19:57:38'),
 (4, 6, 2, 'Pista Eros', 'eros@gmail.com', '312312312', 'pending', 1, 0.00, '2026-04-01 20:11:46'),
-(5, 4, 3, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'pending', 1, 0.00, '2026-04-08 19:11:18');
+(10, 4, 4, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'cancelled', 1, 0.00, '2026-04-11 21:10:44');
 
 -- --------------------------------------------------------
 
@@ -196,7 +196,9 @@ CREATE TABLE `contact_messages` (
 --
 
 INSERT INTO `contact_messages` (`id`, `first_name`, `last_name`, `email`, `subject`, `message`, `created_at`) VALUES
-(5, 'Óra', '', 'daninemeth26@gmail.com', 'Segitség', 'asdasda', '2026-04-11 17:59:12');
+(5, 'Óra', '', 'daninemeth26@gmail.com', 'Segitség', 'asdasda', '2026-04-11 17:59:12'),
+(6, 'Daniel', 'Nemeth', 'daninemeth26@gmail.com', 'Segitség', 'm', '2026-04-11 20:40:53'),
+(7, 'Daniel', 'Nemeth', 'daninemeth26@gmail.com', 'Segitség', 'oijk', '2026-04-11 20:41:11');
 
 -- --------------------------------------------------------
 
@@ -443,6 +445,13 @@ CREATE TABLE `rate_limit_events` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- A tábla adatainak kiíratása `rate_limit_events`
+--
+
+INSERT INTO `rate_limit_events` (`id`, `action`, `ip`, `created_at`) VALUES
+(1, 'contact_guest', '::1', '2026-04-11 20:41:11');
+
 -- --------------------------------------------------------
 
 --
@@ -529,6 +538,22 @@ INSERT INTO `workshop_sessions` (`id`, `workshop_id`, `start_datetime`, `end_dat
 (4, 1, '2026-04-18 14:00:00', '2026-04-18 16:00:00', 5),
 (5, 1, '2026-04-25 10:00:00', '2026-04-25 12:00:00', 5),
 (6, 1, '2026-04-11 13:00:00', '2026-04-11 15:00:00', 5);
+
+-- --------------------------------------------------------
+
+--
+-- Tábla szerkezet ehhez a táblához `workshop_waitlist`
+--
+
+CREATE TABLE `workshop_waitlist` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `session_id` bigint(20) UNSIGNED NOT NULL,
+  `user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `guest_email` varchar(150) NOT NULL,
+  `guest_name` varchar(200) NOT NULL,
+  `guest_phone` varchar(50) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Indexek a kiírt táblákhoz
@@ -663,6 +688,15 @@ ALTER TABLE `workshop_sessions`
   ADD KEY `fk_ws_workshop` (`workshop_id`);
 
 --
+-- A tábla indexei `workshop_waitlist`
+--
+ALTER TABLE `workshop_waitlist`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_waitlist_session_email` (`session_id`,`guest_email`),
+  ADD KEY `idx_waitlist_session` (`session_id`),
+  ADD KEY `idx_waitlist_email` (`guest_email`);
+
+--
 -- A kiírt táblák AUTO_INCREMENT értéke
 --
 
@@ -670,7 +704,7 @@ ALTER TABLE `workshop_sessions`
 -- AUTO_INCREMENT a táblához `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT a táblához `carts`
@@ -688,7 +722,7 @@ ALTER TABLE `cart_items`
 -- AUTO_INCREMENT a táblához `contact_messages`
 --
 ALTER TABLE `contact_messages`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT a táblához `contact_replies`
@@ -742,7 +776,7 @@ ALTER TABLE `product_images`
 -- AUTO_INCREMENT a táblához `rate_limit_events`
 --
 ALTER TABLE `rate_limit_events`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT a táblához `users`
@@ -761,6 +795,12 @@ ALTER TABLE `workshops`
 --
 ALTER TABLE `workshop_sessions`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT a táblához `workshop_waitlist`
+--
+ALTER TABLE `workshop_waitlist`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- Megkötések a kiírt táblákhoz
@@ -818,6 +858,12 @@ ALTER TABLE `product_images`
 --
 ALTER TABLE `workshop_sessions`
   ADD CONSTRAINT `fk_ws_workshop` FOREIGN KEY (`workshop_id`) REFERENCES `workshops` (`id`) ON DELETE CASCADE;
+
+--
+-- Megkötések a táblához `workshop_waitlist`
+--
+ALTER TABLE `workshop_waitlist`
+  ADD CONSTRAINT `fk_waitlist_session` FOREIGN KEY (`session_id`) REFERENCES `workshop_sessions` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

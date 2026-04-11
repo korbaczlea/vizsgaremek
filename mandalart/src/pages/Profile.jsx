@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
 
 function authHeaderFromStorage() {
   const t = localStorage.getItem("mandalart_token");
@@ -44,6 +45,15 @@ export default function Profile({ onLogout }) {
   const [me, setMe] = useState(null);
   const [orders, setOrders] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [workshopWaitlist, setWorkshopWaitlist] = useState([]);
+  const [workshopActionMsg, setWorkshopActionMsg] = useState("");
+  const [workshopActionErr, setWorkshopActionErr] = useState("");
+  const [bookingBusyId, setBookingBusyId] = useState(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState(null);
+  const [rescheduleOptions, setRescheduleOptions] = useState([]);
+  const [reschedulePick, setReschedulePick] = useState("");
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [changeDeadlineHours, setChangeDeadlineHours] = useState(48);
   const [contactConversations, setContactConversations] = useState([]);
   const [contactUnreadCount, setContactUnreadCount] = useState(0);
   const [messagesOpen, setMessagesOpen] = useState(false);
@@ -172,6 +182,19 @@ export default function Profile({ onLogout }) {
       });
       setOrders(Array.isArray(ordersResp.data.orders) ? ordersResp.data.orders : []);
       setBookings(Array.isArray(bookingsResp.data.bookings) ? bookingsResp.data.bookings : []);
+
+      let waitlist = [];
+      try {
+        const waitResp = await fetchJson(`${API_BASE_URL}/api/profile_workshop_waitlist`, {
+          headers: { ...authHeaders },
+        });
+        if (waitResp.res.ok && waitResp.data.status === "success") {
+          waitlist = Array.isArray(waitResp.data.waitlist) ? waitResp.data.waitlist : [];
+        }
+      } catch {
+        /* optional endpoint */
+      }
+      setWorkshopWaitlist(waitlist);
       // Messaging is loaded separately so we can support real-time polling without auto-marking as read.
     } catch {
       if (silent) {
@@ -181,6 +204,152 @@ export default function Profile({ onLogout }) {
       }
     } finally {
       if (!silent) setLoading(false);
+    }
+  };
+
+  const hoursUntilSession = (startDatetime) => {
+    if (!startDatetime) return -1;
+    return (new Date(startDatetime).getTime() - Date.now()) / 3600000;
+  };
+
+  const openReschedule = async (b) => {
+    setWorkshopActionErr("");
+    setWorkshopActionMsg("");
+    setRescheduleBooking(b);
+    setReschedulePick("");
+    setRescheduleLoading(true);
+    try {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/get_workshop_calendar`);
+      if (!res.ok || data.status !== "success") throw new Error("calendar");
+      const hrs = Number(data.change_deadline_hours ?? 48);
+      setChangeDeadlineHours(hrs);
+      const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+      const sid = Number(b.session_id);
+      const opts = sessions.filter((s) => {
+        if (Number(s.id) === sid) return false;
+        if (s.is_full) return false;
+        return hoursUntilSession(s.start_datetime) >= hrs;
+      });
+      setRescheduleOptions(opts);
+    } catch {
+      setWorkshopActionErr("Could not load sessions to reschedule.");
+      setRescheduleBooking(null);
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduleBooking || !reschedulePick) return;
+    const token = localStorage.getItem("mandalart_token");
+    if (!token) return;
+    setBookingBusyId(rescheduleBooking.id);
+    setWorkshopActionErr("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/profile_reschedule_workshop_booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          booking_id: rescheduleBooking.id,
+          new_session_id: Number(reschedulePick),
+        }),
+      });
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+      if (data.status === "too_late_to_change" || data.status === "target_session_too_soon") {
+        setWorkshopActionErr(
+          `Changes are only allowed at least ${changeDeadlineHours} hours before both sessions.`
+        );
+        return;
+      }
+      if (data.status === "slot_already_booked") {
+        setWorkshopActionErr("That session is full. Pick another time.");
+        return;
+      }
+      if (!res.ok || data.status !== "success") throw new Error("fail");
+      setWorkshopActionMsg("Booking moved to the new session.");
+      setRescheduleBooking(null);
+      await loadAll({ silent: true });
+    } catch {
+      setWorkshopActionErr("Could not reschedule.");
+    } finally {
+      setBookingBusyId(null);
+    }
+  };
+
+  const cancelWorkshopBooking = async (b) => {
+    if (
+      !window.confirm(
+        `Cancel this workshop booking${
+          b.start_datetime ? ` (${new Date(b.start_datetime).toLocaleString()})` : ""
+        }?`
+      )
+    ) {
+      return;
+    }
+    const token = localStorage.getItem("mandalart_token");
+    if (!token) return;
+    setBookingBusyId(b.id);
+    setWorkshopActionErr("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/profile_cancel_workshop_booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ booking_id: b.id }),
+      });
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+      if (data.status === "too_late_to_change") {
+        setWorkshopActionErr(
+          `Cancellations are only allowed at least ${changeDeadlineHours} hours before the start.`
+        );
+        return;
+      }
+      if (!res.ok || data.status !== "success") throw new Error("fail");
+      setWorkshopActionMsg("Booking cancelled.");
+      await loadAll({ silent: true });
+    } catch {
+      setWorkshopActionErr("Could not cancel booking.");
+    } finally {
+      setBookingBusyId(null);
+    }
+  };
+
+  const removeWaitlistEntry = async (w) => {
+    const token = localStorage.getItem("mandalart_token");
+    if (!token) return;
+    setBookingBusyId(`w-${w.id}`);
+    setWorkshopActionErr("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/profile_cancel_workshop_waitlist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ waitlist_id: w.id }),
+      });
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+      if (!res.ok || data.status !== "success") throw new Error("fail");
+      setWorkshopActionMsg("Removed from waitlist.");
+      await loadAll({ silent: true });
+    } catch {
+      setWorkshopActionErr("Could not remove waitlist entry.");
+    } finally {
+      setBookingBusyId(null);
     }
   };
 
@@ -278,12 +447,18 @@ export default function Profile({ onLogout }) {
   };
 
   if (loading) {
-    return <main className="profile-page profile-loading">Loading profile...</main>;
+    return (
+      <main className="profile-page profile-loading">
+        <PageHelmet title="Profile" description="Your MandalArt account." path="/Profile" noindex />
+        Loading profile...
+      </main>
+    );
   }
 
   if (error) {
     return (
       <main className="profile-page">
+        <PageHelmet title="Profile" description="Your MandalArt account." path="/Profile" noindex />
         <h2>Profile</h2>
         <p className="profile-error">{error}</p>
       </main>
@@ -292,6 +467,7 @@ export default function Profile({ onLogout }) {
 
   return (
     <main className="profile-page">
+      <PageHelmet title="Profile" description="Your MandalArt account, orders, and support messages." path="/Profile" noindex />
       <section className="profile-card profile-card--header">
         <div>
           <h2 className="profile-title">Profile</h2>
@@ -420,24 +596,96 @@ export default function Profile({ onLogout }) {
 
       <section className="profile-card">
         <h3 className="profile-subtitle">My workshop bookings</h3>
+        {workshopActionMsg ? (
+          <p className="profile-message" style={{ color: "#2e7d32", marginTop: 0 }}>
+            {workshopActionMsg}
+          </p>
+        ) : null}
+        {workshopActionErr ? (
+          <p className="profile-message" style={{ color: "#b00020", marginTop: 0 }}>
+            {workshopActionErr}
+          </p>
+        ) : null}
+        <p className="profile-muted" style={{ marginTop: 0 }}>
+          Cancel or change your booking at least {changeDeadlineHours} hours before the session starts.
+        </p>
         {bookings.length === 0 ? (
           <p className="profile-muted">No workshop bookings yet.</p>
         ) : (
           <div className="profile-bookings">
-            {bookings.map((b) => (
-              <div key={b.id} className="profile-bookingItem">
-                <div>
-                  <b>{b.workshop_title}</b>
-                </div>
-                {b.start_datetime ? (
-                  <div className="profile-muted">
-                    Booking date:{" "}
-                    {new Date(b.start_datetime).toLocaleString()}
-                    {b.end_datetime
-                      ? ` – ${new Date(b.end_datetime).toLocaleString()}`
-                      : ""}
+            {bookings.map((b) => {
+              const cancelled = String(b.status) === "cancelled";
+              return (
+                <div
+                  key={b.id}
+                  className={`profile-bookingItem${cancelled ? " profile-bookingItem--cancelled" : ""}`}
+                >
+                  <div>
+                    <b>{b.workshop_title}</b>
+                    <span className="profile-muted" style={{ marginLeft: 8, textTransform: "capitalize" }}>
+                      ({b.status})
+                    </span>
                   </div>
-                ) : null}
+                  {b.start_datetime ? (
+                    <div className="profile-muted">
+                      {new Date(b.start_datetime).toLocaleString()}
+                      {b.end_datetime ? ` – ${new Date(b.end_datetime).toLocaleString()}` : ""}
+                    </div>
+                  ) : null}
+                  {!cancelled && b.can_modify ? (
+                    <div className="profile-bookingActions">
+                      <button
+                        type="button"
+                        className="profile-btn profile-btn--ghost"
+                        disabled={bookingBusyId === b.id}
+                        onClick={() => openReschedule(b)}
+                      >
+                        Change date
+                      </button>
+                      <button
+                        type="button"
+                        className="profile-btn profile-btn--danger"
+                        disabled={bookingBusyId === b.id}
+                        onClick={() => cancelWorkshopBooking(b)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : null}
+                  {!cancelled && !b.can_modify ? (
+                    <p className="profile-muted" style={{ fontSize: 13, margin: "8px 0 0" }}>
+                      Changes are no longer allowed (less than {changeDeadlineHours}h before start).
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="profile-card">
+        <h3 className="profile-subtitle">Workshop waitlist</h3>
+        {workshopWaitlist.length === 0 ? (
+          <p className="profile-muted">You are not on any waitlist.</p>
+        ) : (
+          <div className="profile-bookings">
+            {workshopWaitlist.map((w) => (
+              <div key={w.id} className="profile-bookingItem">
+                <div>
+                  <b>{w.workshop_title}</b>
+                </div>
+                <div className="profile-muted">
+                  {w.start_datetime ? new Date(w.start_datetime).toLocaleString() : ""}
+                </div>
+                <button
+                  type="button"
+                  className="profile-btn profile-btn--ghost"
+                  disabled={bookingBusyId === `w-${w.id}`}
+                  onClick={() => removeWaitlistEntry(w)}
+                >
+                  Leave waitlist
+                </button>
               </div>
             ))}
           </div>
@@ -565,6 +813,60 @@ export default function Profile({ onLogout }) {
           <p className="profile-muted">No messages yet.</p>
         )}
       </section>
+
+      {rescheduleBooking ? (
+        <div
+          className="profile-modalOverlay"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setRescheduleBooking(null);
+          }}
+        >
+          <div className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="reschedule-title">
+            <h3 id="reschedule-title">Move to another session</h3>
+            <p className="profile-muted">
+              Only sessions with free spots and at least {changeDeadlineHours} hours until start are listed.
+            </p>
+            {rescheduleLoading ? (
+              <p>Loading…</p>
+            ) : rescheduleOptions.length === 0 ? (
+              <p className="profile-muted">No alternative sessions available right now.</p>
+            ) : (
+              <>
+                <label className="profile-fieldLabel" htmlFor="reschedule-select">
+                  New time slot
+                </label>
+                <select
+                  id="reschedule-select"
+                  className="profile-select"
+                  value={reschedulePick}
+                  onChange={(e) => setReschedulePick(e.target.value)}
+                >
+                  <option value="">Choose…</option>
+                  {rescheduleOptions.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.booking_date} {s.start_time}–{s.end_time} ({s.remaining} places)
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            <div className="profile-modalActions">
+              <button type="button" className="profile-btn profile-btn--ghost" onClick={() => setRescheduleBooking(null)}>
+                Close
+              </button>
+              <button
+                type="button"
+                className="profile-btn"
+                disabled={!reschedulePick || bookingBusyId === rescheduleBooking.id}
+                onClick={submitReschedule}
+              >
+                {bookingBusyId === rescheduleBooking.id ? "Saving…" : "Confirm move"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

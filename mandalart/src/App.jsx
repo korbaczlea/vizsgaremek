@@ -17,6 +17,7 @@ import API_BASE_URL from "./config/api";
 // Cart
 import { CartProvider, useCart } from "./context/CartContext";
 import CartDrawer from "./components/CartDrawer";
+import AccessibleModal from "./components/AccessibleModal";
 
 function isStrongPassword(password) {
   if (typeof password !== "string") return false;
@@ -96,7 +97,7 @@ function NavMenu({ showAdmin = false, loggedIn = false }) {
         <Link to="/">Home</Link>
         <Link to="/About">About</Link>
         <Link to="/Gallery">Gallery</Link>
-        {loggedIn ? <Link to="/Contact">Contact</Link> : null}
+        <Link to="/Contact">Contact</Link>
         <Link to="/Prices">Prices</Link>
         <Link to="/Workshop">Workshop booking</Link>
         <Link to="/Order">Order</Link>
@@ -116,12 +117,16 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
   const [mode, setMode] = useState("login"); // "login" | "forgot"
   const [info, setInfo] = useState("");
 
-  if (!isOpen) return null;
-
   const resetState = () => {
     setError("");
     setInfo("");
     setPassword("");
+  };
+
+  const closeModal = () => {
+    resetState();
+    setMode("login");
+    onClose();
   };
 
   const handleLogin = async (e) => {
@@ -169,7 +174,7 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
       if (onSuccess) {
         onSuccess({ email, token: data.token });
       }
-      onClose();
+      closeModal();
     } catch (err) {
       console.error(err);
       setError(
@@ -224,11 +229,6 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
       }
 
       setInfo("Reset link has been sent.");
-
-      // Fejlesztéshez – token a konzolban, hogy tudd tesztelni a chpass_promise hívást
-      if (data.token) {
-        console.log("Password reset token (dev only):", data.token);
-      }
     } catch (err) {
       console.error(err);
       setError(
@@ -240,20 +240,11 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
   };
 
   return (
-    <div className="modal" style={{ display: "block" }}>
-      <div className="modal-content">
-        <span
-          className="close"
-          onClick={() => {
-            resetState();
-            setMode("login");
-            onClose();
-          }}
-        >
-          &times;
-        </span>
-        <h2>{mode === "login" ? "Sign in" : "Forgot password"}</h2>
-
+    <AccessibleModal
+      isOpen={isOpen}
+      onClose={closeModal}
+      title={mode === "login" ? "Sign in" : "Forgot password"}
+    >
         {mode === "login" ? (
           <form onSubmit={handleLogin}>
             <div className="form-group">
@@ -324,11 +315,10 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
               Back to sign in
             </button>
             <p className="error-message">{error}</p>
-            {info && <p className="info-message">{info}</p>}
+            {info ? <p className="info-message">{info}</p> : null}
           </form>
         )}
-      </div>
-    </div>
+    </AccessibleModal>
   );
 }
 
@@ -344,7 +334,10 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (!isOpen) return null;
+  const closeModal = () => {
+    setError("");
+    onClose();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -404,13 +397,13 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
           return;
         }
 
-        if (!res.ok || data.status !== "success") {
+        if (!res.ok || data.status !== "success" || !data.token) {
           setError("Sign up failed. Please try again.");
           return;
         }
 
         if (onSuccess) {
-          onSuccess({ name, email });
+          onSuccess({ name, email, token: data.token });
         }
         onClose();
       } catch (err) {
@@ -425,18 +418,7 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
   };
 
   return (
-    <div className="modal" style={{ display: "block" }}>
-      <div className="modal-content">
-        <span
-          className="close register-close"
-          onClick={() => {
-            setError("");
-            onClose();
-          }}
-        >
-          &times;
-        </span>
-        <h2>Sign up</h2>
+    <AccessibleModal isOpen={isOpen} onClose={closeModal} title="Sign up">
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Name:</label>
@@ -493,8 +475,7 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
           </button>
           <p className="error-message">{error}</p>
         </form>
-      </div>
-    </div>
+    </AccessibleModal>
   );
 }
 
@@ -616,9 +597,13 @@ export default function App() {
     setLoginOpen(false);
   };
 
-  const handleRegisterSuccess = ({ name, email }) => {
+  const handleRegisterSuccess = ({ name, email, token }) => {
+    if (token) {
+      localStorage.setItem("mandalart_token", token);
+      setTokenValue(token);
+    }
     setLoggedIn(true);
-    setUser({ name, email });
+    setUser({ name, email, token });
     setRegisterOpen(false);
   };
 
@@ -758,7 +743,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/About" element={<About />} />
           <Route path="/Gallery" element={<Gallery />} />
-          <Route path="/Contact" element={<Contact />} />
+          <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
           <Route path="/Prices" element={<Prices />} />
           <Route path="/Workshop" element={<Workshop />} />
           <Route path="/Order" element={<Order loggedIn={loggedIn} />} />

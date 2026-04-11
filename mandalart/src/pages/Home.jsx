@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
 import { defaultHomeContent } from "../data/sitePageDefaults";
 
 export default function Home() {
@@ -112,6 +113,11 @@ export default function Home() {
 
   return (
     <main className="home-wrap">
+      <PageHelmet
+        title="Home"
+        description="Handmade mandalas, workshops, and inspiration. Explore MandalArt — create, decorate, inspire."
+        path="/"
+      />
       <section className="home-hero">
         <div className="home-hero__grid">
           <div className="home-hero__media">

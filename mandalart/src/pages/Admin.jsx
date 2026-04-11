@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../config/api";
+import PageHelmet from "../components/PageHelmet";
 
 function authHeaders() {
   const token = localStorage.getItem("mandalart_token");
@@ -73,6 +74,7 @@ export default function Admin() {
   const [workshopBookings, setWorkshopBookings] = useState([]);
   const [workshopBookingsLoading, setWorkshopBookingsLoading] = useState(false);
   const [workshopBookingsError, setWorkshopBookingsError] = useState("");
+  const [sessionBookingBusyId, setSessionBookingBusyId] = useState(null);
 
   // Workshop sessions create form
   const [newWorkshopSession, setNewWorkshopSession] = useState({
@@ -300,6 +302,52 @@ export default function Admin() {
       await loadWorkshopBookings();
     } catch {
       setWorkshopBookingsError("Failed to delete workshop session.");
+    }
+  };
+
+  const updateSessionBookingStatus = async (bookingId, status) => {
+    setWorkshopBookingsError("");
+    setSessionBookingBusyId(bookingId);
+    try {
+      const { res, data } = await fetchJson(
+        `${API_BASE_URL}/api/admin_update_session_booking_status`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ booking_id: bookingId, status }),
+        }
+      );
+      if (!res.ok || data.status !== "success") throw new Error("Failed");
+      await loadWorkshopBookings();
+    } catch {
+      setWorkshopBookingsError("Failed to update booking status.");
+    } finally {
+      setSessionBookingBusyId(null);
+    }
+  };
+
+  const deleteSessionBooking = async (bookingId, userLabel) => {
+    if (
+      !confirm(
+        `Delete this booking${userLabel ? ` (${userLabel})` : ""}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setWorkshopBookingsError("");
+    setSessionBookingBusyId(bookingId);
+    try {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_delete_session_booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ booking_id: bookingId }),
+      });
+      if (!res.ok || data.status !== "success") throw new Error("Failed");
+      await loadWorkshopBookings();
+    } catch {
+      setWorkshopBookingsError("Failed to delete booking.");
+    } finally {
+      setSessionBookingBusyId(null);
     }
   };
 
@@ -555,6 +603,7 @@ export default function Admin() {
   if (authError) {
     return (
       <main className="admin-page">
+        <PageHelmet title="Admin" description="MandalArt administration." path="/Admin" noindex />
         <section className="profile-card">
           <h2 className="profile-title">Admin</h2>
           <p className="profile-error">{authError}</p>
@@ -568,6 +617,7 @@ export default function Admin() {
 
   return (
     <main className="admin-page">
+      <PageHelmet title="Admin" description="MandalArt administration." path="/Admin" noindex />
       <section className="profile-card admin-header">
         <h2 className="profile-title">Admin</h2>
         <div className="admin-userMeta">
@@ -1067,8 +1117,53 @@ export default function Admin() {
                     {s.bookings && s.bookings.length ? (
                       <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
                         {s.bookings.map((b) => (
-                          <div key={b.booking_id} className="admin-muted" style={{ fontSize: 13 }}>
-                            {b.user_name} ({b.user_email}) — {b.user_phone} — status: <b>{b.booking_status}</b>
+                          <div
+                            key={b.booking_id}
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              alignItems: "center",
+                              gap: 10,
+                              fontSize: 13,
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid var(--border)",
+                              background: "rgba(255,255,255,0.5)",
+                            }}
+                          >
+                            <span className="admin-muted">
+                              <b>{b.user_name}</b> ({b.user_email}) — {b.user_phone}
+                            </span>
+                            <label className="admin-fieldLabel" style={{ margin: 0 }}>
+                              Status
+                            </label>
+                            <select
+                              className="admin-workshopStatusSelect"
+                              value={b.booking_status || "pending"}
+                              disabled={sessionBookingBusyId === b.booking_id}
+                              onChange={(e) =>
+                                updateSessionBookingStatus(b.booking_id, e.target.value)
+                              }
+                              aria-label={`Booking status for ${b.user_name}`}
+                            >
+                              <option value="pending">pending</option>
+                              <option value="confirmed">confirmed</option>
+                              <option value="cancelled">cancelled</option>
+                              <option value="attended">attended</option>
+                            </select>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn--danger"
+                              disabled={sessionBookingBusyId === b.booking_id}
+                              onClick={() =>
+                                deleteSessionBooking(
+                                  b.booking_id,
+                                  b.user_name || b.user_email || ""
+                                )
+                              }
+                            >
+                              Delete
+                            </button>
                           </div>
                         ))}
                       </div>

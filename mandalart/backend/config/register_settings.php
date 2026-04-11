@@ -18,3 +18,12 @@ if (!defined('MANDALART_REGISTER_RATE_MAX_PER_IP')) {
 if (!defined('MANDALART_REGISTER_RATE_WINDOW_SEC')) {
     define('MANDALART_REGISTER_RATE_WINDOW_SEC', 3600);
 }
+
+/** Guest contact form: max submissions per IP per window. */
+if (!defined('MANDALART_CONTACT_GUEST_RATE_MAX_PER_IP')) {
+    define('MANDALART_CONTACT_GUEST_RATE_MAX_PER_IP', 12);
+}
+
+if (!defined('MANDALART_CONTACT_GUEST_RATE_WINDOW_SEC')) {
+    define('MANDALART_CONTACT_GUEST_RATE_WINDOW_SEC', 3600);
+}

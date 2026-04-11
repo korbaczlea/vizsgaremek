@@ -50,6 +50,8 @@ $public_endpoints = [
     'chpass_promise',
     'workshop_booking',
     'get_workshop_sessions',
+    'get_workshop_calendar',
+    'workshop_waitlist_join',
     'place_order',
     'get_all_products',
     'get_featured_products',
@@ -60,6 +62,7 @@ $public_endpoints = [
     'get_site_pages',
     'get_home_page',
     'get_about_page',
+    'contact_guest_request',
 ];
 
 $is_public = in_array($endpoint, $public_endpoints, true);
@@ -133,11 +136,20 @@ switch ($endpoint) {
     case 'get_workshop_sessions':
         require __DIR__ . '/controllers/get_workshop_sessions.php';
         break;
+    case 'get_workshop_calendar':
+        require __DIR__ . '/controllers/get_workshop_calendar.php';
+        break;
+    case 'workshop_waitlist_join':
+        require __DIR__ . '/controllers/workshop_waitlist_join.php';
+        break;
     case 'place_order':
         require __DIR__ . '/controllers/place_order.php';
         break;
     case 'contact_request':
         require __DIR__ . '/controllers/contact_request.php';
+        break;
+    case 'contact_guest_request':
+        require __DIR__ . '/controllers/contact_guest_request.php';
         break;
     case 'get_all_products':
         require __DIR__ . '/controllers/get_all_products.php';
@@ -179,6 +191,19 @@ switch ($endpoint) {
 
     case 'profile_send_contact_reply':
         require __DIR__ . '/controllers/profile_send_contact_reply.php';
+        break;
+
+    case 'profile_cancel_workshop_booking':
+        require __DIR__ . '/controllers/profile_cancel_workshop_booking.php';
+        break;
+    case 'profile_reschedule_workshop_booking':
+        require __DIR__ . '/controllers/profile_reschedule_workshop_booking.php';
+        break;
+    case 'profile_workshop_waitlist':
+        require __DIR__ . '/controllers/profile_workshop_waitlist.php';
+        break;
+    case 'profile_cancel_workshop_waitlist':
+        require __DIR__ . '/controllers/profile_cancel_workshop_waitlist.php';
         break;
 
     // Admin endpoints (JWT + admin role required)
@@ -269,6 +294,14 @@ switch ($endpoint) {
     case 'admin_create_workshop_booking':
         require_admin($currentUserEmail);
         require __DIR__ . '/controllers/admin_create_workshop_booking.php';
+        break;
+    case 'admin_update_session_booking_status':
+        require_admin($currentUserEmail);
+        require __DIR__ . '/controllers/admin_update_session_booking_status.php';
+        break;
+    case 'admin_delete_session_booking':
+        require_admin($currentUserEmail);
+        require __DIR__ . '/controllers/admin_delete_session_booking.php';
         break;
     case 'admin_get_site_pages':
         require_admin($currentUserEmail);
