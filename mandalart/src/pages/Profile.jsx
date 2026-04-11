@@ -85,6 +85,9 @@ export default function Profile({ onLogout }) {
       if (!res.ok || data.status !== "success") throw new Error("Failed");
       setContactConversations(Array.isArray(data.conversations) ? data.conversations : []);
       setContactUnreadCount(Number(data.unread_count ?? 0));
+      if (markRead) {
+        window.dispatchEvent(new CustomEvent("mandalart:contactUnreadRefresh"));
+      }
     } catch {
       if (!silent) {
         // keep page usable; no hard error for messaging refresh

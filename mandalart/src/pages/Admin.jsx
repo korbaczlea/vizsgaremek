@@ -6,6 +6,9 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Below PHP default max_file_uploads (20); each chunk is one multipart request. */
+const GALLERY_UPLOAD_CHUNK_SIZE = 18;
+
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   const text = await res.text();
@@ -499,35 +502,45 @@ export default function Admin() {
     setGalleryUploading(true);
 
     try {
-      const formData = new FormData();
-      for (const f of list) {
-        // multiple entries with the same key; PHP will expose them as an array in $_FILES
-        formData.append("files", f, f.name);
+      let totalUploaded = 0;
+      let totalSkipped = 0;
+
+      for (let offset = 0; offset < list.length; offset += GALLERY_UPLOAD_CHUNK_SIZE) {
+        const chunk = list.slice(offset, offset + GALLERY_UPLOAD_CHUNK_SIZE);
+        const formData = new FormData();
+        for (const f of chunk) {
+          formData.append("files", f, f.name);
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/admin_upload_gallery_images`, {
+          method: "POST",
+          headers: { ...authHeaders() },
+          body: formData,
+        });
+
+        const text = await res.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
+
+        if (!res.ok || data.status !== "success") {
+          const msg = data?.message || "Failed to upload images.";
+          throw new Error(
+            list.length > GALLERY_UPLOAD_CHUNK_SIZE
+              ? `${msg} (stopped after ${totalUploaded} OK; try uploading the rest in another batch.)`
+              : msg
+          );
+        }
+
+        totalUploaded += data.uploaded_count ?? 0;
+        totalSkipped += data.skipped_count ?? 0;
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/admin_upload_gallery_images`, {
-        method: "POST",
-        headers: { ...authHeaders() },
-        body: formData,
-      });
-
-      const text = await res.text();
-      let data = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = {};
-      }
-
-      if (!res.ok || data.status !== "success") {
-        const msg = data?.message || "Failed to upload images.";
-        throw new Error(msg);
-      }
-
-      const uploadedCount = data.uploaded_count ?? 0;
-      const skippedCount = data.skipped_count ?? 0;
       setGalleryUploadSuccess(
-        `Upload successful: ${uploadedCount} file(s) added${skippedCount ? `, ${skippedCount} skipped` : ""}.`
+        `Upload successful: ${totalUploaded} file(s) added${totalSkipped ? `, ${totalSkipped} skipped` : ""}.`
       );
 
       await loadGallery();

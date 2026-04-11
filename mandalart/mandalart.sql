@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Gép: 127.0.0.1
--- Létrehozás ideje: 2026. Ápr 02. 12:23
+-- Létrehozás ideje: 2026. Ápr 11. 18:15
 -- Kiszolgáló verziója: 10.4.32-MariaDB
 -- PHP verzió: 8.2.12
 
@@ -21,10 +21,85 @@ SET time_zone = "+00:00";
 -- Adatbázis: `mandalart`
 --
 
+DELIMITER $$
 --
--- Tárolt eljárások nem részei ennek a dumpnak (duplikáció elkerülése).
--- Telepítés: futtasd a `backend/sql/stored_procedures.sql` fájlt az adatbázison.
+-- Eljárások
 --
+CREATE DEFINER=`root`@`localhost` PROCEDURE `admin_list_contact_messages_proc` ()   BEGIN
+    SELECT id, first_name, last_name, email, subject, message, created_at
+    FROM contact_messages
+    ORDER BY created_at DESC, id DESC;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `admin_list_orders_proc` ()   BEGIN
+    SELECT
+        o.id,
+        o.order_number,
+        o.full_name,
+        o.email,
+        o.phone,
+        o.country,
+        o.county,
+        o.city,
+        o.postal_code,
+        o.payment_method,
+        o.order_status,
+        o.total_amount,
+        o.created_at,
+        o.user_id
+    FROM orders o
+    ORDER BY o.created_at DESC, o.id DESC;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `create_contact_message_proc` (IN `p_first_name` VARCHAR(100), IN `p_last_name` VARCHAR(100), IN `p_email` VARCHAR(150), IN `p_subject` VARCHAR(255), IN `p_message` TEXT)   BEGIN
+    INSERT INTO contact_messages (first_name, last_name, email, subject, message)
+    VALUES (p_first_name, p_last_name, p_email, p_subject, p_message);
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `gallery_list_images_proc` ()   BEGIN
+    SELECT id, filename, title, sort_order, created_at
+    FROM gallery_images
+    ORDER BY sort_order ASC, id ASC;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `get_all_products_proc` ()   BEGIN
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.category,
+        (
+            SELECT pi.image_path
+            FROM product_images pi
+            WHERE pi.product_id = p.id
+            ORDER BY pi.sort_order ASC, pi.id ASC
+            LIMIT 1
+        ) AS image_url,
+        p.is_active
+    FROM products p
+    WHERE p.is_active = 1
+    ORDER BY p.id ASC;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `get_workshop_sessions_next3weeks_proc` (IN `p_from` DATETIME, IN `p_to` DATETIME)   BEGIN
+    SELECT
+        ws.id,
+        ws.workshop_id,
+        ws.start_datetime,
+        ws.end_datetime,
+        ws.available_spots,
+        w.title AS workshop_title
+    FROM workshop_sessions ws
+    JOIN workshops w ON w.id = ws.workshop_id
+    WHERE w.is_active = 1
+      AND ws.start_datetime >= p_from
+      AND ws.start_datetime < p_to
+      AND WEEKDAY(ws.start_datetime) = 5
+    ORDER BY ws.start_datetime ASC;
+END$$
+
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -51,7 +126,8 @@ CREATE TABLE `bookings` (
 
 INSERT INTO `bookings` (`id`, `user_id`, `session_id`, `guest_name`, `guest_email`, `guest_phone`, `status`, `num_participants`, `total_price`, `created_at`) VALUES
 (3, 4, 2, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'pending', 1, 0.00, '2026-04-01 19:57:38'),
-(4, 6, 2, 'Pista Eros', 'eros@gmail.com', '312312312', 'pending', 1, 0.00, '2026-04-01 20:11:46');
+(4, 6, 2, 'Pista Eros', 'eros@gmail.com', '312312312', 'pending', 1, 0.00, '2026-04-01 20:11:46'),
+(5, 4, 3, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'pending', 1, 0.00, '2026-04-08 19:11:18');
 
 -- --------------------------------------------------------
 
@@ -120,7 +196,7 @@ CREATE TABLE `contact_messages` (
 --
 
 INSERT INTO `contact_messages` (`id`, `first_name`, `last_name`, `email`, `subject`, `message`, `created_at`) VALUES
-(3, 'Pist', '', 'eros@gmail.com', 'Help', 'Kéene segitség', '2026-04-02 12:12:00');
+(5, 'Óra', '', 'daninemeth26@gmail.com', 'Segitség', 'asdasda', '2026-04-11 17:59:12');
 
 -- --------------------------------------------------------
 
@@ -142,8 +218,8 @@ CREATE TABLE `contact_replies` (
 --
 
 INSERT INTO `contact_replies` (`id`, `contact_message_id`, `admin_email`, `reply_message`, `created_at`, `is_read`) VALUES
-(4, 3, 'daninemeth26@gmail.com', 'Szia miben segithetek?', '2026-04-02 12:13:37', 1),
-(5, 3, 'daninemeth26@gmail.com', 'éklékl', '2026-04-02 12:19:25', 1);
+(7, 5, 'daninemeth26@gmail.com', 'asdasdasdasd', '2026-04-11 17:59:27', 1),
+(8, 5, 'daninemeth26@gmail.com', 'Csáó', '2026-04-11 18:00:00', 1);
 
 -- --------------------------------------------------------
 
@@ -158,6 +234,13 @@ CREATE TABLE `contact_user_replies` (
   `reply_message` text NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- A tábla adatainak kiíratása `contact_user_replies`
+--
+
+INSERT INTO `contact_user_replies` (`id`, `contact_message_id`, `user_email`, `reply_message`, `created_at`) VALUES
+(5, 5, 'daninemeth26@gmail.com', 'cső', '2026-04-11 17:59:51');
 
 -- --------------------------------------------------------
 
@@ -306,7 +389,15 @@ CREATE TABLE `products` (
 
 INSERT INTO `products` (`id`, `name`, `slug`, `description`, `price`, `stock_quantity`, `category`, `is_active`, `created_at`, `updated_at`) VALUES
 (1, 'Óra', 'ra', '20cm óra', 50000.00, 50001, 'Óra', 1, '2026-03-25 19:05:52', '2026-04-02 11:31:09'),
-(2, 'Mandala', 'mandala', 'Szép', 20000.00, 0, 'Óra', 1, '2026-04-02 11:15:36', '2026-04-02 11:31:16');
+(2, 'Mandala', 'mandala', 'Szép', 20000.00, 0, 'Óra', 1, '2026-04-02 11:15:36', '2026-04-02 11:31:16'),
+(3, 'Óra', 'ra-2', '30cm', 30000.00, 20, 'Óra', 1, '2026-04-11 18:04:49', NULL),
+(4, 'Mandala', 'mandala-2', '20cm', 20000.00, 20, '', 1, '2026-04-11 18:05:24', '2026-04-11 18:05:33'),
+(5, 'Mandala', 'mandala-3', '30cm', 35000.00, 20, '', 1, '2026-04-11 18:06:00', NULL),
+(6, 'Mandala', 'mandala-4', '20cm', 25000.00, 0, '', 1, '2026-04-11 18:06:25', NULL),
+(7, 'Mandala', 'mandala-5', '40', 45000.00, 0, '', 1, '2026-04-11 18:06:48', NULL),
+(8, 'Mandala', 'mandala-6', '40cm', 40000.00, 20, '', 1, '2026-04-11 18:07:11', NULL),
+(9, 'Mandala', 'mandala-7', '30cm', 30000.00, 20, '', 1, '2026-04-11 18:08:23', NULL),
+(10, 'Mandala', 'mandala-8', '20cm', 20000.00, 20, '', 1, '2026-04-11 18:08:50', NULL);
 
 -- --------------------------------------------------------
 
@@ -329,7 +420,15 @@ CREATE TABLE `product_images` (
 
 INSERT INTO `product_images` (`id`, `product_id`, `image_path`, `alt_text`, `sort_order`, `created_at`) VALUES
 (10, 1, '/gallery_images/649772283_1414100613271152_899958418931778459_n.jpg', NULL, 0, '2026-04-02 11:31:09'),
-(11, 2, '/gallery_images/649731267_855649910865411_2524941193632485057_n.jpg', NULL, 0, '2026-04-02 11:31:16');
+(11, 2, '/gallery_images/649731267_855649910865411_2524941193632485057_n.jpg', NULL, 0, '2026-04-02 11:31:16'),
+(12, 3, '/gallery_images/650988060_1638980614051709_9168048035053153180_n.jpg', NULL, 0, '2026-04-11 18:04:49'),
+(13, 4, '/gallery_images/650031271_2993496320849949_1521892507762391628_n.jpg', NULL, 0, '2026-04-11 18:05:33'),
+(14, 5, '/gallery_images/650988060_1638980614051709_9168048035053153180_n.jpg', NULL, 0, '2026-04-11 18:06:00'),
+(15, 6, '/gallery_images/649598888_2220941725315594_7760369645744302177_n.jpg', NULL, 0, '2026-04-11 18:06:25'),
+(16, 7, '/gallery_images/649587556_1597663641522779_5576813141914897187_n.jpg', NULL, 0, '2026-04-11 18:06:48'),
+(17, 8, '/gallery_images/649470995_1863031051042817_6405987227750793513_n.jpg', NULL, 0, '2026-04-11 18:07:11'),
+(18, 9, '/gallery_images/650393968_967347539568338_5104482648103238507_n.jpg', NULL, 0, '2026-04-11 18:08:23'),
+(19, 10, '/gallery_images/650048535_981502784542148_6573124550791091248_n.jpg', NULL, 0, '2026-04-11 18:08:50');
 
 -- --------------------------------------------------------
 
@@ -425,7 +524,11 @@ CREATE TABLE `workshop_sessions` (
 --
 
 INSERT INTO `workshop_sessions` (`id`, `workshop_id`, `start_datetime`, `end_datetime`, `available_spots`) VALUES
-(2, 1, '2026-04-04 12:00:00', '2026-04-04 18:00:00', 5);
+(2, 1, '2026-04-04 12:00:00', '2026-04-04 18:00:00', 5),
+(3, 1, '2026-04-11 10:00:00', '2026-04-11 12:00:00', 5),
+(4, 1, '2026-04-18 14:00:00', '2026-04-18 16:00:00', 5),
+(5, 1, '2026-04-25 10:00:00', '2026-04-25 12:00:00', 5),
+(6, 1, '2026-04-11 13:00:00', '2026-04-11 15:00:00', 5);
 
 --
 -- Indexek a kiírt táblákhoz
@@ -567,7 +670,7 @@ ALTER TABLE `workshop_sessions`
 -- AUTO_INCREMENT a táblához `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT a táblához `carts`
@@ -585,19 +688,19 @@ ALTER TABLE `cart_items`
 -- AUTO_INCREMENT a táblához `contact_messages`
 --
 ALTER TABLE `contact_messages`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT a táblához `contact_replies`
 --
 ALTER TABLE `contact_replies`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT a táblához `contact_user_replies`
 --
 ALTER TABLE `contact_user_replies`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT a táblához `gallery_images`
@@ -627,13 +730,13 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT a táblához `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT a táblához `product_images`
 --
 ALTER TABLE `product_images`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT a táblához `rate_limit_events`
@@ -657,7 +760,7 @@ ALTER TABLE `workshops`
 -- AUTO_INCREMENT a táblához `workshop_sessions`
 --
 ALTER TABLE `workshop_sessions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- Megkötések a kiírt táblákhoz
@@ -720,356 +823,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-
-
-DROP PROCEDURE IF EXISTS get_all_products_proc;
-DROP PROCEDURE IF EXISTS gallery_list_images_proc;
-DROP PROCEDURE IF EXISTS get_workshop_sessions_next3weeks_proc;
-DROP PROCEDURE IF EXISTS admin_list_orders_proc;
-DROP PROCEDURE IF EXISTS create_contact_message_proc;
-DROP PROCEDURE IF EXISTS admin_list_contact_messages_proc;
-DROP PROCEDURE IF EXISTS create_product;
-DROP PROCEDURE IF EXISTS update_product;
-DROP PROCEDURE IF EXISTS delete_product;
-DROP PROCEDURE IF EXISTS list_products;
-DROP PROCEDURE IF EXISTS get_product;
-DROP PROCEDURE IF EXISTS set_product_active;
-DROP PROCEDURE IF EXISTS create_gallery_image;
-DROP PROCEDURE IF EXISTS update_gallery_image;
-DROP PROCEDURE IF EXISTS delete_gallery_image;
-DROP PROCEDURE IF EXISTS list_orders;
-DROP PROCEDURE IF EXISTS update_order_status;
-DROP PROCEDURE IF EXISTS list_workshop_sessions;
-DROP PROCEDURE IF EXISTS create_workshop_session;
-DROP PROCEDURE IF EXISTS update_workshop_session;
-DROP PROCEDURE IF EXISTS delete_workshop_session;
-
-DELIMITER //
-
-CREATE PROCEDURE get_all_products_proc()
-BEGIN
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.category,
-        (
-            SELECT pi.image_path
-            FROM product_images pi
-            WHERE pi.product_id = p.id
-            ORDER BY pi.sort_order ASC, pi.id ASC
-            LIMIT 1
-        ) AS image_url,
-        p.is_active
-    FROM products p
-    WHERE p.is_active = 1
-    ORDER BY p.id ASC;
-END //
-
-CREATE PROCEDURE gallery_list_images_proc()
-BEGIN
-    SELECT id, filename, title, sort_order, created_at
-    FROM gallery_images
-    ORDER BY sort_order ASC, id ASC;
-END //
-
-CREATE PROCEDURE get_workshop_sessions_next3weeks_proc(IN p_from DATETIME, IN p_to DATETIME)
-BEGIN
-    SELECT
-        ws.id,
-        ws.workshop_id,
-        ws.start_datetime,
-        ws.end_datetime,
-        ws.available_spots,
-        w.title AS workshop_title
-    FROM workshop_sessions ws
-    JOIN workshops w ON w.id = ws.workshop_id
-    WHERE w.is_active = 1
-      AND ws.start_datetime >= p_from
-      AND ws.start_datetime < p_to
-      AND WEEKDAY(ws.start_datetime) = 5
-    ORDER BY ws.start_datetime ASC;
-END //
-
-CREATE PROCEDURE admin_list_orders_proc()
-BEGIN
-    SELECT
-        o.id,
-        o.order_number,
-        o.full_name,
-        o.email,
-        o.phone,
-        o.country,
-        o.county,
-        o.city,
-        o.postal_code,
-        o.payment_method,
-        o.order_status,
-        o.total_amount,
-        o.created_at,
-        o.user_id
-    FROM orders o
-    ORDER BY o.created_at DESC, o.id DESC;
-END //
-
-CREATE PROCEDURE create_contact_message_proc(
-    IN p_first_name VARCHAR(100),
-    IN p_last_name VARCHAR(100),
-    IN p_email VARCHAR(150),
-    IN p_subject VARCHAR(255),
-    IN p_message TEXT
-)
-BEGIN
-    INSERT INTO contact_messages (first_name, last_name, email, subject, message)
-    VALUES (p_first_name, p_last_name, p_email, p_subject, p_message);
-END //
-
-CREATE PROCEDURE admin_list_contact_messages_proc()
-BEGIN
-    SELECT id, first_name, last_name, email, subject, message, created_at
-    FROM contact_messages
-    ORDER BY created_at DESC, id DESC;
-END //
-
-CREATE PROCEDURE create_product(
-    IN p_name VARCHAR(150),
-    IN p_slug VARCHAR(160),
-    IN p_description TEXT,
-    IN p_price DECIMAL(10,2),
-    IN p_stock_quantity INT,
-    IN p_category VARCHAR(100),
-    IN p_image_url VARCHAR(255),
-    IN p_is_active TINYINT(1)
-)
-BEGIN
-    DECLARE v_product_id BIGINT UNSIGNED;
-
-    START TRANSACTION;
-
-    INSERT INTO products (name, slug, description, price, stock_quantity, category, is_active, created_at)
-    VALUES (p_name, p_slug, p_description, p_price, p_stock_quantity, p_category, p_is_active, NOW());
-
-    SET v_product_id = LAST_INSERT_ID();
-
-    IF p_image_url IS NOT NULL AND TRIM(p_image_url) <> '' THEN
-        INSERT INTO product_images (product_id, image_path, alt_text, sort_order, created_at)
-        VALUES (v_product_id, TRIM(p_image_url), NULL, 0, NOW());
-    END IF;
-
-    COMMIT;
-
-    SELECT v_product_id AS id;
-END //
-
-CREATE PROCEDURE update_product(
-    IN p_id BIGINT UNSIGNED,
-    IN p_name VARCHAR(150),
-    IN p_slug VARCHAR(160),
-    IN p_description TEXT,
-    IN p_price DECIMAL(10,2),
-    IN p_stock_quantity INT,
-    IN p_category VARCHAR(100),
-    IN p_image_url VARCHAR(255),
-    IN p_is_active TINYINT(1)
-)
-BEGIN
-    START TRANSACTION;
-
-    UPDATE products
-    SET name = p_name,
-        slug = p_slug,
-        description = p_description,
-        price = p_price,
-        stock_quantity = p_stock_quantity,
-        category = p_category,
-        is_active = p_is_active,
-        updated_at = NOW()
-    WHERE id = p_id;
-
-    DELETE FROM product_images WHERE product_id = p_id;
-
-    IF p_image_url IS NOT NULL AND TRIM(p_image_url) <> '' THEN
-        INSERT INTO product_images (product_id, image_path, alt_text, sort_order, created_at)
-        VALUES (p_id, TRIM(p_image_url), NULL, 0, NOW());
-    END IF;
-
-    COMMIT;
-
-    SELECT ROW_COUNT() >= 0 AS ok;
-END //
-
-CREATE PROCEDURE delete_product(IN p_id BIGINT UNSIGNED)
-BEGIN
-    DELETE FROM products WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-CREATE PROCEDURE list_products()
-BEGIN
-    SELECT
-        p.id,
-        p.name,
-        p.slug,
-        p.description,
-        p.price,
-        p.stock_quantity,
-        p.category,
-        p.is_active,
-        (
-            SELECT pi.image_path
-            FROM product_images pi
-            WHERE pi.product_id = p.id
-            ORDER BY pi.sort_order ASC, pi.id ASC
-            LIMIT 1
-        ) AS image_url,
-        p.created_at,
-        p.updated_at
-    FROM products p
-    ORDER BY p.id DESC;
-END //
-
-CREATE PROCEDURE get_product(IN p_id BIGINT UNSIGNED)
-BEGIN
-    SELECT
-        p.id,
-        p.name,
-        p.slug,
-        p.description,
-        p.price,
-        p.stock_quantity,
-        p.category,
-        p.is_active,
-        (
-            SELECT pi.image_path
-            FROM product_images pi
-            WHERE pi.product_id = p.id
-            ORDER BY pi.sort_order ASC, pi.id ASC
-            LIMIT 1
-        ) AS image_url,
-        p.created_at,
-        p.updated_at
-    FROM products p
-    WHERE p.id = p_id
-    LIMIT 1;
-END //
-
-CREATE PROCEDURE set_product_active(IN p_id BIGINT UNSIGNED, IN p_is_active TINYINT(1))
-BEGIN
-    UPDATE products
-    SET is_active = p_is_active,
-        updated_at = NOW()
-    WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-CREATE PROCEDURE create_gallery_image(
-    IN p_filename VARCHAR(255),
-    IN p_title VARCHAR(255),
-    IN p_sort_order INT,
-    IN p_active TINYINT(1)
-)
-BEGIN
-    INSERT INTO gallery_images (filename, title, sort_order, active, created_at)
-    VALUES (p_filename, p_title, p_sort_order, p_active, NOW());
-    SELECT LAST_INSERT_ID() AS id;
-END //
-
-CREATE PROCEDURE update_gallery_image(
-    IN p_id BIGINT UNSIGNED,
-    IN p_title VARCHAR(255),
-    IN p_sort_order INT,
-    IN p_active TINYINT(1)
-)
-BEGIN
-    UPDATE gallery_images
-    SET title = p_title,
-        sort_order = p_sort_order,
-        active = p_active
-    WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-CREATE PROCEDURE delete_gallery_image(IN p_id BIGINT UNSIGNED)
-BEGIN
-    DELETE FROM gallery_images WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-CREATE PROCEDURE list_orders()
-BEGIN
-    SELECT
-        id,
-        order_number,
-        full_name,
-        email,
-        phone,
-        country,
-        county,
-        city,
-        postal_code,
-        payment_method,
-        order_status,
-        total_amount,
-        created_at,
-        user_id
-    FROM orders
-    ORDER BY created_at DESC, id DESC;
-END //
-
-CREATE PROCEDURE update_order_status(IN p_id BIGINT UNSIGNED, IN p_order_status VARCHAR(50))
-BEGIN
-    UPDATE orders
-    SET order_status = p_order_status
-    WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-CREATE PROCEDURE list_workshop_sessions()
-BEGIN
-    SELECT
-        ws.id,
-        ws.workshop_id,
-        ws.start_datetime,
-        ws.end_datetime,
-        ws.available_spots,
-        w.title AS workshop_title
-    FROM workshop_sessions ws
-    JOIN workshops w ON w.id = ws.workshop_id
-    ORDER BY ws.start_datetime ASC, ws.id ASC;
-END //
-
-CREATE PROCEDURE create_workshop_session(
-    IN p_workshop_id BIGINT UNSIGNED,
-    IN p_start_datetime DATETIME,
-    IN p_end_datetime DATETIME,
-    IN p_available_spots INT
-)
-BEGIN
-    INSERT INTO workshop_sessions (workshop_id, start_datetime, end_datetime, available_spots)
-    VALUES (p_workshop_id, p_start_datetime, p_end_datetime, p_available_spots);
-    SELECT LAST_INSERT_ID() AS id;
-END //
-
-CREATE PROCEDURE update_workshop_session(
-    IN p_id BIGINT UNSIGNED,
-    IN p_start_datetime DATETIME,
-    IN p_end_datetime DATETIME,
-    IN p_available_spots INT
-)
-BEGIN
-    UPDATE workshop_sessions
-    SET start_datetime = p_start_datetime,
-        end_datetime = p_end_datetime,
-        available_spots = p_available_spots
-    WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-CREATE PROCEDURE delete_workshop_session(IN p_id BIGINT UNSIGNED)
-BEGIN
-    DELETE FROM workshop_sessions WHERE id = p_id;
-    SELECT ROW_COUNT() > 0 AS ok;
-END //
-
-DELIMITER ;

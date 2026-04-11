@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
 import "./App.css";
 
@@ -530,11 +530,22 @@ function CartIconButton({ onClick }) {
   );
 }
 
-function ProfileIconButton({ loggedIn }) {
+function ProfileIconButton({ loggedIn, unreadSupportCount }) {
   if (!loggedIn) return null;
+  const n = Math.max(0, Number(unreadSupportCount) || 0);
+  const label =
+    n > 0
+      ? `Open profile — ${n} new support ${n === 1 ? "message" : "messages"}`
+      : "Open profile";
+  const badgeText = n > 99 ? "99+" : String(n);
   return (
-    <Link className="cart-iconBtn profile-iconBtn" to="/Profile" aria-label="Open profile">
+    <Link className="cart-iconBtn profile-iconBtn" to="/Profile" aria-label={label}>
       <UserCircleIcon />
+      {n > 0 ? (
+        <span className="cart-badge" aria-hidden="true">
+          {badgeText}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -550,6 +561,32 @@ export default function App() {
 
   const [cartOpen, setCartOpen] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [contactUnreadCount, setContactUnreadCount] = useState(0);
+
+  const refreshContactUnread = useCallback(async () => {
+    const token = localStorage.getItem("mandalart_token");
+    if (!token) {
+      setContactUnreadCount(0);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/profile_contact_messages?mark_read=0`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        return;
+      }
+      if (!res.ok || data.status !== "success") return;
+      setContactUnreadCount(Number(data.unread_count ?? 0));
+    } catch {
+      // keep previous count
+    }
+  }, []);
 
   const handleLoginClick = () => setLoginOpen(true);
   const handleRegisterClick = () => {
@@ -669,6 +706,23 @@ export default function App() {
     };
   }, [loggedIn]);
 
+  useEffect(() => {
+    if (!loggedIn) {
+      setContactUnreadCount(0);
+      return;
+    }
+    refreshContactUnread();
+    const intervalId = window.setInterval(refreshContactUnread, 30000);
+    const onUnreadRefresh = () => {
+      refreshContactUnread();
+    };
+    window.addEventListener("mandalart:contactUnreadRefresh", onUnreadRefresh);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("mandalart:contactUnreadRefresh", onUnreadRefresh);
+    };
+  }, [loggedIn, refreshContactUnread]);
+
   return (
     <CartProvider>
       <div>
@@ -683,7 +737,7 @@ export default function App() {
             loggedIn={loggedIn}
             registrationOpen={registrationOpen}
           />
-          <ProfileIconButton loggedIn={loggedIn} />
+          <ProfileIconButton loggedIn={loggedIn} unreadSupportCount={contactUnreadCount} />
           <CartIconButton onClick={() => setCartOpen(true)} />
         </div>
 
