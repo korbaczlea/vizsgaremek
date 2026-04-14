@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../models/user_model.php';
 require_once __DIR__ . '/../core/jwt.php';
-require_once __DIR__ . '/mail_service.php';
 
 function is_strong_password(string $password): bool
 {
@@ -30,7 +29,6 @@ function process_chpass_request(string $email): array
     }
 
     $token = JWT::generate_reset_token($email);
-    mandalart_mail_send_password_reset($email, $token);
     // In production, send $token by email only — do not expose in API responses.
     $out = ['status' => 'success', 'code' => 200];
     if (MANDALART_DEV_EXPOSE_RESET_TOKEN) {

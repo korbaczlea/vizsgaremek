@@ -21,24 +21,6 @@ function ensure_contact_messages_table(): void
     );
 }
 
-function contact_get_message_row(int $id): ?array
-{
-    ensure_contact_messages_table();
-    if ($id <= 0) {
-        return null;
-    }
-    $pdo = get_db();
-    $stmt = $pdo->prepare(
-        'SELECT id, first_name, last_name, email, subject
-         FROM contact_messages
-         WHERE id = :id
-         LIMIT 1'
-    );
-    $stmt->execute([':id' => $id]);
-    $row = $stmt->fetch();
-    return $row ?: null;
-}
-
 function create_contact_message(
     string $firstName,
     string $lastName,

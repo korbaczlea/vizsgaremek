@@ -196,13 +196,7 @@ export default function Contact({ loggedIn = false }) {
           </div>
 
           {feedback.text ? (
-            <p
-              className={`app-alert ${
-                feedback.type === "success" ? "app-alert--success" : "app-alert--error"
-              }`}
-            >
-              {feedback.text}
-            </p>
+            <p style={{ color: feedback.type === "success" ? "#2e7d32" : "#b00020" }}>{feedback.text}</p>
           ) : null}
 
           <button type="submit" className="login-btn" disabled={loading}>

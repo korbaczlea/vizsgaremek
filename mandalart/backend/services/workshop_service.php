@@ -1,7 +1,6 @@
 <?php
 
 require_once __DIR__ . '/../models/workshop_session_model.php';
-require_once __DIR__ . '/mail_service.php';
 
 /**
  * Workshop foglalás logika (workshop_sessions + bookings).
@@ -74,10 +73,6 @@ function process_workshop_booking(array $data): array
     } catch (Throwable $e) {
         return ['status' => 'server_error', 'code' => 500];
     }
-
-    $title = (string) ($session['workshop_title'] ?? 'Workshop');
-    $start = (string) ($session['start_datetime'] ?? '');
-    mandalart_mail_send_workshop_booking_pending($email, $guestName, $title, $start);
 
     return ['status' => 'success', 'code' => 200];
 }

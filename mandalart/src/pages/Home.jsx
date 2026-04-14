@@ -4,7 +4,7 @@ import API_BASE_URL from "../config/api";
 import PageHelmet from "../components/PageHelmet";
 import { defaultHomeContent } from "../data/sitePageDefaults";
 
-export default function Home({ loggedIn = false }) {
+export default function Home() {
   const [content, setContent] = useState(null);
   const [featuredFromProducts, setFeaturedFromProducts] = useState([]);
 
@@ -36,23 +36,26 @@ export default function Home({ loggedIn = false }) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data.status !== "success" || !Array.isArray(data.products)) return;
 
-        const normalized = data.products.slice(0, 3).map((p) => {
-          let fallbackImage = null;
-          const name = String(p?.name || "");
-          const lowerName = name.toLowerCase();
-          if (p?.id === 1 || name.includes("12")) fallbackImage = "/images/little_mandala.png";
-          else if (p?.id === 2 || name.includes("22")) fallbackImage = "/images/medium_mandala.png";
-          else if (p?.id === 3 || lowerName.includes("clock")) fallbackImage = "/images/clock_mandala.png";
+        const normalized = data.products
+          .filter((p) => Number(p?.is_active ?? 1) === 1)
+          .slice(0, 3)
+          .map((p) => {
+            let fallbackImage = null;
+            const name = String(p?.name || "");
+            const lowerName = name.toLowerCase();
+            if (p?.id === 1 || name.includes("12")) fallbackImage = "/images/little_mandala.png";
+            else if (p?.id === 2 || name.includes("22")) fallbackImage = "/images/medium_mandala.png";
+            else if (p?.id === 3 || lowerName.includes("clock")) fallbackImage = "/images/clock_mandala.png";
 
-          const rawPrice = Number(p?.price ?? 0);
-          const currency = p?.currency || "HUF";
-          return {
-            name: name || "Product",
-            price: `${rawPrice.toLocaleString()} ${currency}`,
-            image: p?.image || fallbackImage,
-            desc: p?.description || "Handmade mandala available on the Order page.",
-          };
-        });
+            const rawPrice = Number(p?.price ?? 0);
+            const currency = p?.currency || "HUF";
+            return {
+              name: name || "Product",
+              price: `${rawPrice.toLocaleString()} ${currency}`,
+              image: p?.image || fallbackImage || "/images/medium_mandala.png",
+              desc: p?.description || "Handmade mandala available on the Order page.",
+            };
+          });
 
         if (!cancelled && normalized.length) setFeaturedFromProducts(normalized);
       } catch {
@@ -208,9 +211,7 @@ export default function Home({ loggedIn = false }) {
                 <div className="home-productCard__name">{p.name}</div>
                 <div className="home-productCard__desc">{p.desc}</div>
                 <div className="home-productCard__row">
-                  <div className="home-productCard__price">
-                    {loggedIn ? p.price : "Sign in to see price"}
-                  </div>
+                  <div className="home-productCard__price">{p.price}</div>
                   <Link className="home-miniBtn" to="/Order">
                     Shop
                   </Link>

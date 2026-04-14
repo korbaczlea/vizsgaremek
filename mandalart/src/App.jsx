@@ -12,7 +12,6 @@ import Workshop from "./pages/Workshop";
 import Order from "./pages/Order";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
-import ResetPassword from "./pages/ResetPassword";
 import API_BASE_URL from "./config/api";
 
 // Cart
@@ -741,7 +740,7 @@ export default function App() {
         />
 
         <Routes>
-          <Route path="/" element={<Home loggedIn={loggedIn} />} />
+          <Route path="/" element={<Home />} />
           <Route path="/About" element={<About />} />
           <Route path="/Gallery" element={<Gallery />} />
           <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
@@ -750,7 +749,6 @@ export default function App() {
           <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
           <Route path="/Admin" element={<Admin />} />
           <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </div>
     </CartProvider>

@@ -13,10 +13,7 @@ require_once __DIR__ . '/user_model.php';
  * A felhasználó azonosítását most guestként kezeljük: users.id = 1.
  */
 
-/**
- * @return array<string, mixed>|null siker esetén metaadatok az emailhez; hiba esetén null
- */
-function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): ?array
+function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): bool
 {
     $pdo = get_db();
 
@@ -146,18 +143,12 @@ function create_order(array $customer, array $items, float $total, ?string $curr
         }
 
         $pdo->commit();
-        return [
-            'order_number' => $orderNumber,
-            'email' => $email,
-            'full_name' => $fullName,
-            'total_amount' => $total,
-            'items' => $items,
-        ];
+        return true;
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return null;
+        return false;
     }
 }
 
