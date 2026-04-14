@@ -19,6 +19,11 @@ export default function AccessibleModal({ isOpen, onClose, title, children }) {
   const dialogRef = useRef(null);
   const titleId = useId();
   const previouslyFocused = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -32,7 +37,7 @@ export default function AccessibleModal({ isOpen, onClose, title, children }) {
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -67,7 +72,7 @@ export default function AccessibleModal({ isOpen, onClose, title, children }) {
         }
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

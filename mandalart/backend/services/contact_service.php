@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/contact_model.php';
+require_once __DIR__ . '/mail_service.php';
 
 function process_contact_message(array $payload): array
 {
@@ -49,6 +50,8 @@ function process_contact_message(array $payload): array
     if (!$ok) {
         return ['status' => 'server_error', 'code' => 500];
     }
+
+    mandalart_mail_send_contact_received($email, $firstName);
 
     return ['status' => 'success', 'code' => 200];
 }

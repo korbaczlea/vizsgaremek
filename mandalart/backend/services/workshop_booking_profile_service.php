@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/workshop_settings.php';
 require_once __DIR__ . '/../models/workshop_session_model.php';
 require_once __DIR__ . '/../models/workshop_waitlist_model.php';
 require_once __DIR__ . '/../models/user_model.php';
+require_once __DIR__ . '/mail_service.php';
 
 /**
  * @return array<string,mixed>|null
@@ -67,6 +68,10 @@ function process_workshop_waitlist_join(array $data): array
     if ($rc !== 'success') {
         return ['status' => 'server_error', 'code' => 500];
     }
+
+    $title = (string) ($session['workshop_title'] ?? 'Workshop');
+    $start = (string) ($session['start_datetime'] ?? '');
+    mandalart_mail_send_workshop_waitlist_joined($email, $guestName, $title, $start);
 
     return ['status' => 'success', 'code' => 200];
 }
@@ -132,6 +137,13 @@ function workshop_try_promote_one_from_waitlist(int $sessionId): void
 
         waitlist_delete_by_id($pdo, (int) $w['id']);
         $pdo->commit();
+
+        $promoEmail = trim((string) $w['guest_email']);
+        if ($promoEmail !== '' && filter_var($promoEmail, FILTER_VALIDATE_EMAIL)) {
+            $wTitle = (string) ($session['workshop_title'] ?? 'Workshop');
+            $wStart = (string) ($session['start_datetime'] ?? '');
+            mandalart_mail_send_workshop_promoted_from_waitlist($promoEmail, $guestName, $wTitle, $wStart);
+        }
     } catch (Throwable $e) {
         $pdo->rollBack();
     }
