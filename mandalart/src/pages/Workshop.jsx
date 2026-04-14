@@ -558,9 +558,9 @@ export default function Workshop() {
               </div>
             </div>
 
-            {error && <div className="workshop-error">{error}</div>}
-            {success && <div className="workshop-success">{success}</div>}
-            {waitlistSuccess && <div className="workshop-success">{waitlistSuccess}</div>}
+            {error && <div className="app-alert app-alert--error">{error}</div>}
+            {success && <div className="app-alert app-alert--success">{success}</div>}
+            {waitlistSuccess && <div className="app-alert app-alert--success">{waitlistSuccess}</div>}
 
             <div className="workshop-actions">
               <button
