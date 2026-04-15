@@ -253,6 +253,7 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                data-initial-focus="true"
                 required
               />
             </div>
@@ -298,6 +299,7 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                data-initial-focus="true"
                 required
               />
             </div>
@@ -422,7 +424,13 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Name:</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} required />
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              data-initial-focus="true"
+              required
+            />
           </div>
           <div className="form-group">
             <label>Email:</label>
@@ -740,7 +748,7 @@ export default function App() {
         />
 
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Home loggedIn={loggedIn} />} />
           <Route path="/About" element={<About />} />
           <Route path="/Gallery" element={<Gallery />} />
           <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
