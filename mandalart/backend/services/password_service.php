@@ -29,7 +29,6 @@ function process_chpass_request(string $email): array
     }
 
     $token = JWT::generate_reset_token($email);
-    // In production, send $token by email only — do not expose in API responses.
     $out = ['status' => 'success', 'code' => 200];
     if (MANDALART_DEV_EXPOSE_RESET_TOKEN) {
         $out['token'] = $token;

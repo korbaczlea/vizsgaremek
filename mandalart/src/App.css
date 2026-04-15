@@ -1,15 +1,6 @@
-/* App.css */
-
-
-/* =========================
-   THEME (színek, egységes stílus)
-   ========================= */
-
 :root {
     --bg: #f3eadf;
-    /* bézs alap */
     --grid: rgba(185, 108, 156, 0.14);
-    /* rács vonal színe */
     --text: #222;
     --muted: #555;
     --card: rgba(255, 255, 255, 0.92);
@@ -23,24 +14,15 @@
 }
 
 
-/* =========================
-   ALAP BEÁLLÍTÁSOK
-   ========================= */
-
 body {
     margin: 0;
     font-family: "Segoe UI", sans-serif;
     color: var(--text);
-    /* Bézses háttér + jól látható rács */
     background-color: var(--bg);
     background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
     background-size: 22px 22px;
 }
 
-
-/* =========================
-   HEADER / HERO (FENT)
-   ========================= */
 
 .hero {
     text-align: center;
@@ -66,10 +48,6 @@ h1 {
     color: var(--muted);
 }
 
-
-/* =========================
-   MENÜ / NAVBAR
-   ========================= */
 
 .menu {
     display: flex;
@@ -102,10 +80,6 @@ h1 {
     color: var(--accent);
 }
 
-
-/* =========================
-   AUTH (a top-right konténerben)
-   ========================= */
 
 .auth-links {
     position: static;
@@ -145,10 +119,6 @@ h1 {
 }
 
 
-/* =========================
-   GALLERY
-   ========================= */
-
 .gallery {
     max-width: 1000px;
     margin: 40px auto;
@@ -167,10 +137,6 @@ h1 {
 .gallery img:hover {
     transform: scale(1.05);
 }
-
-/* =========================
-   GALLERY LIGHTBOX (Kattintós nagyítás)
-   ========================= */
 
 .gallery-imageBtn {
     padding: 0;
@@ -259,13 +225,8 @@ h1 {
 }
 
 
-/* =========================
-   MODÁLOK (LOGIN/REGISTER)
-   ========================= */
-
 .modal {
     display: none;
-    /* React-ben inline style-ban jelenítjük meg */
     position: fixed;
     z-index: 1000;
     left: 0;
@@ -332,10 +293,6 @@ h1 {
 }
 
 
-/* =========================
-   FORMÁK
-   ========================= */
-
 .form-group {
     margin-bottom: 25px;
 }
@@ -392,10 +349,6 @@ h1 {
 }
 
 
-/* =========================
-   LOGIN / REGISTER GOMB
-   ========================= */
-
 .login-btn {
     width: 100%;
     padding: 14px;
@@ -448,10 +401,6 @@ h1 {
     outline-offset: 2px;
 }
 
-
-/* =========================
-   HIBÁK
-   ========================= */
 
 .error-message,
 .info-message,
@@ -520,10 +469,6 @@ h1 {
 }
 
 
-/* =========================
-   KÖZÖS "CARD" ESEMÉNYEK (Order/Workshop)
-   ========================= */
-
 .workshop-card,
 .order-card,
 .workshop-extra {
@@ -534,18 +479,12 @@ h1 {
 }
 
 
-/* =========================
-   HOME – POLISHED LAYOUT (NEW)
-   ========================= */
-
 .home-wrap {
     max-width: 1100px;
     margin: 0 auto;
     padding: 32px 20px 60px;
 }
 
-
-/* HERO */
 
 .home-hero {
     margin-top: 10px;
@@ -639,8 +578,6 @@ h1 {
 }
 
 
-/* Copy */
-
 .home-kicker {
     display: inline-block;
     font-size: 12px;
@@ -674,8 +611,6 @@ h1 {
 }
 
 
-/* Buttons used on Home */
-
 .home-btn {
     display: inline-block;
     padding: 12px 16px;
@@ -707,8 +642,6 @@ h1 {
     transform: translateY(-2px);
 }
 
-
-/* Trust items */
 
 .home-trust {
     margin-top: 18px;
@@ -749,8 +682,6 @@ h1 {
 }
 
 
-/* Sections */
-
 .home-section {
     margin-top: 22px;
 }
@@ -773,8 +704,6 @@ h1 {
     text-decoration: underline;
 }
 
-
-/* Featured cards */
 
 .home-featured {
     display: grid;
@@ -860,8 +789,6 @@ h1 {
 }
 
 
-/* Split section */
-
 .home-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -939,8 +866,6 @@ h1 {
 }
 
 
-/* Mobile */
-
 @media (max-width: 960px) {
     .home-hero__grid {
         grid-template-columns: 1fr;
@@ -960,10 +885,6 @@ h1 {
 }
 
 
-/* =========================
-   ORDER / PRODUCTS PAGE
-   ========================= */
-
 .order-wrap {
     max-width: 1100px;
     margin: 0 auto;
@@ -981,8 +902,6 @@ h1 {
     color: var(--muted);
 }
 
-
-/* Grid */
 
 .order-grid {
     display: grid;
@@ -1080,10 +999,6 @@ h1 {
     transform: translateY(0);
 }
 
-
-/* =========================
-   WORKSHOP BOOKING
-   ========================= */
 
 .workshop-wrap {
     max-width: 1100px;
@@ -1405,8 +1320,6 @@ h1 {
 }
 
 
-/* Mobil */
-
 @media (max-width: 900px) {
     .workshop-card {
         grid-template-columns: 1fr;
@@ -1420,10 +1333,6 @@ h1 {
 }
 
 
-/* =========================
-   TOP RIGHT (AUTH + CART)
-   ========================= */
-
 .top-right {
     position: fixed;
     top: 20px;
@@ -1434,10 +1343,6 @@ h1 {
     gap: 10px;
 }
 
-
-/* =========================
-   CART ICON + BADGE
-   ========================= */
 
 .cart-iconBtn {
     position: relative;
@@ -1498,10 +1403,6 @@ h1 {
     border: 2px solid white;
 }
 
-
-/* =========================
-   CART DRAWER
-   ========================= */
 
 .cart-overlay {
     position: fixed;
@@ -1735,10 +1636,6 @@ h1 {
     }
 }
 
-/* =========================
-   PROFILE PAGE
-   ========================= */
-
 .profile-page {
     max-width: 1100px;
     margin: 0 auto;
@@ -1948,10 +1845,6 @@ h1 {
     width: auto;
 }
 
-
-/* =========================
-   ADMIN PAGE
-   ========================= */
 
 .admin-page {
     max-width: 1100px;

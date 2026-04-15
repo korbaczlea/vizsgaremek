@@ -86,7 +86,6 @@ export default function CartDrawer({ open, onClose }) {
 
       setSuccess("Order placed successfully! We will contact you soon.");
       clearCart();
-      // a checkout nyitva marad, hogy az üzenet látszódjon
       setForm((p) => ({ ...p, payment: "Cash on delivery" }));
     } catch (err) {
       console.error(err);

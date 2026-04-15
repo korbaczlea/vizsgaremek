@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../models/gallery_model.php';
 
-// A Vite public mappája: projektgyökér/public
 $publicImagesDir = realpath(__DIR__ . '/../../public/gallery_images');
 
 if (!$publicImagesDir || !is_dir($publicImagesDir)) {

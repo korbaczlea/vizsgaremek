@@ -2,28 +2,6 @@
 
 require_once __DIR__ . '/../config.php';
 
-/**
- * Egyszerű workshop foglalások tárolása.
- *
- * Kapacitás: 1 időponthoz (booking_date + booking_time) maximum 5 foglalás tartozik.
- *
- * FONTOS: a 5-ös kapacitás miatt ne legyen UNIQUE korlát a (booking_date, booking_time) páron.
- *
- * Ha már megvan a tábla UNIQUE kulccsal, akkor futtasd:
- *   ALTER TABLE workshop_bookings DROP INDEX uniq_slot;
- *
- * CREATE TABLE workshop_bookings (
- *   id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
- *   booking_date DATE NOT NULL,
- *   booking_time VARCHAR(5) NOT NULL,
- *   first_name VARCHAR(100) NOT NULL,
- *   last_name VARCHAR(100) NOT NULL,
- *   email VARCHAR(150) NOT NULL,
- *   phone VARCHAR(50) NOT NULL,
- *   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *   PRIMARY KEY (id)
- * ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
- */
 
 function get_booking_count(string $date, string $time): int
 {
@@ -69,8 +47,6 @@ function create_workshop_booking(
             ':phone' => $phone,
         ]);
     } catch (PDOException $e) {
-        // Ha mégis van UNIQUE (booking_date, booking_time), akkor duplikációt kapunk:
-        // tekintsük úgy, hogy a slot betelt.
         if ($e->getCode() === '23000') {
             return false;
         }
@@ -112,7 +88,6 @@ function get_booking_count_excluding_id(string $date, string $time, int $exclude
 
 function admin_update_workshop_booking_slot(int $id, string $newDate, string $newTime, int $capacity = 5): bool
 {
-    // Capacity ellenőrzés: a saját foglalás ne számítson bele
     $count = get_booking_count_excluding_id($newDate, $newTime, $id);
     if ($count >= $capacity) {
         return false;
@@ -143,7 +118,6 @@ function admin_create_workshop_booking(
     string $email,
     string $phone
 ): bool {
-    // Kapacitás ellenőrzés
     if (is_slot_full($date, $time, 5)) {
         return false;
     }

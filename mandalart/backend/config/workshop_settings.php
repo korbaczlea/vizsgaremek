@@ -1,13 +1,9 @@
 <?php
 
-/**
- * Workshop: change/cancel deadline = this many hours before session start.
- */
 if (!defined('MANDALART_WORKSHOP_CHANGE_DEADLINE_HOURS')) {
     define('MANDALART_WORKSHOP_CHANGE_DEADLINE_HOURS', 48);
 }
 
-/** Calendar API: load sessions from today for this many days (Saturdays only in SQL). */
 if (!defined('MANDALART_WORKSHOP_CALENDAR_DAYS')) {
     define('MANDALART_WORKSHOP_CALENDAR_DAYS', 56);
 }

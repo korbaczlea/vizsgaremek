@@ -2,20 +2,6 @@
 
 require_once __DIR__ . '/../models/workshop_session_model.php';
 
-/**
- * Workshop foglalás logika (workshop_sessions + bookings).
- *
- * Endpoint: POST /api/workshop_booking
- *
- * Elvárt body:
- * - session_id
- * - first_name, last_name, email, phone
- *
- * Visszatérés:
- * - success
- * - slot_already_booked (409) ha betelt
- * - malformed_request (400)
- */
 function process_workshop_booking(array $data): array
 {
     $sessionId = (int) ($data['session_id'] ?? 0);

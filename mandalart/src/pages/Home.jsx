@@ -55,9 +55,7 @@ export default function Home({ loggedIn = false }) {
         });
 
         if (!cancelled && normalized.length) setFeaturedFromProducts(normalized);
-      } catch {
-        // Keep existing featured fallback content if product endpoint fails.
-      }
+      } catch {}
     })();
 
     return () => {

@@ -4,10 +4,6 @@ START TRANSACTION;
 SET time_zone = "+00:00";
 
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
 
 
 DELIMITER $$
@@ -84,6 +80,67 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `get_workshop_sessions_next3weeks_pr
       AND ws.start_datetime < p_to
       AND WEEKDAY(ws.start_datetime) = 5
     ORDER BY ws.start_datetime ASC;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_create_proc` (
+    IN `p_name` VARCHAR(150),
+    IN `p_slug` VARCHAR(160),
+    IN `p_description` TEXT,
+    IN `p_price` DECIMAL(10,2),
+    IN `p_stock_quantity` INT,
+    IN `p_category` VARCHAR(100),
+    IN `p_is_active` TINYINT
+)   BEGIN
+    INSERT INTO products (name, slug, description, price, stock_quantity, category, is_active)
+    VALUES (p_name, p_slug, p_description, p_price, p_stock_quantity, p_category, p_is_active);
+
+    SELECT LAST_INSERT_ID() AS product_id;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_update_proc` (
+    IN `p_id` BIGINT UNSIGNED,
+    IN `p_name` VARCHAR(150),
+    IN `p_description` TEXT,
+    IN `p_price` DECIMAL(10,2),
+    IN `p_stock_quantity` INT,
+    IN `p_category` VARCHAR(100),
+    IN `p_is_active` TINYINT
+)   BEGIN
+    UPDATE products
+    SET
+        name = p_name,
+        description = p_description,
+        price = p_price,
+        stock_quantity = p_stock_quantity,
+        category = p_category,
+        is_active = p_is_active
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_delete_proc` (IN `p_id` BIGINT UNSIGNED)   BEGIN
+    DELETE FROM products
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_get_by_id_proc` (IN `p_id` BIGINT UNSIGNED)   BEGIN
+    SELECT
+        id,
+        name,
+        slug,
+        description,
+        price,
+        stock_quantity,
+        category,
+        is_active,
+        created_at,
+        updated_at
+    FROM products
+    WHERE id = p_id
+    LIMIT 1;
 END$$
 
 DELIMITER ;
@@ -633,6 +690,3 @@ ALTER TABLE `workshop_waitlist`
   ADD CONSTRAINT `fk_waitlist_session` FOREIGN KEY (`session_id`) REFERENCES `workshop_sessions` (`id`) ON DELETE CASCADE;
 COMMIT;
 
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

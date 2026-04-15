@@ -6,7 +6,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     send_json('malformed_request', 400);
 }
 
-// Uploaded files come from FormData: files[] (multiple) or files (single).
 $filesField = $_FILES['files'] ?? $_FILES['files[]'] ?? null;
 if (!$filesField) {
     send_json('malformed_request', 400, ['message' => 'Missing files field']);
@@ -19,12 +18,6 @@ if (!$publicImagesDir || !is_dir($publicImagesDir)) {
 
 $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];
 
-/**
- * Normalize to arrays:
- * - name: array of original names
- * - tmp_name: array of tmp file paths
- * - error: array of upload errors
- */
 if (is_array($filesField['name'] ?? null)) {
     $names = $filesField['name'];
     $tmpNames = $filesField['tmp_name'];
@@ -64,7 +57,6 @@ for ($i = 0; $i < count($names); $i++) {
     $nameNoExt = preg_replace('/[^a-zA-Z0-9_-]+/', '_', $nameNoExt);
     if (!$nameNoExt) $nameNoExt = 'image';
 
-    // Avoid overwriting existing files: generate a unique target filename.
     $targetName = $nameNoExt . '.' . $ext;
     $destPath = $publicImagesDir . DIRECTORY_SEPARATOR . $targetName;
     if (file_exists($destPath)) {

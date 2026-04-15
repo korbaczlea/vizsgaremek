@@ -9,7 +9,6 @@ function toISODate(d) {
   return `${y}-${m}-${day}`;
 }
 
-/** Monday = 0 … Sunday = 6 */
 function mondayIndex(d) {
   return (d.getDay() + 6) % 7;
 }

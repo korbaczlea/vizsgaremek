@@ -21,9 +21,6 @@ function getInitialFocusTarget(container) {
   return focusables[0] || container;
 }
 
-/**
- * Dialog overlay with focus trap, Escape to close, and aria-modal.
- */
 export default function AccessibleModal({ isOpen, onClose, title, children }) {
   const dialogRef = useRef(null);
   const titleId = useId();
@@ -76,9 +73,7 @@ export default function AccessibleModal({ isOpen, onClose, title, children }) {
       if (prev && typeof prev.focus === "function") {
         try {
           prev.focus();
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       }
     };
   }, [isOpen]);

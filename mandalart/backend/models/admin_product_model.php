@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../config.php';
 
-/** `products.slug` is VARCHAR(160); reserve space for "-2", "-3", … suffixes. */
 function admin_fit_product_slug(string $slug, int $maxLen = 160): string
 {
     $slug = trim($slug);
@@ -162,7 +161,6 @@ function admin_update_product(int $id, array $p): bool
 
         $imageUrl = trim((string) ($p['image_url'] ?? ''));
 
-        // Egy termékhez csak 1 "fő" képet kezelünk az admin felületen: product_images törlés + beszúrás.
         $pdo->prepare('DELETE FROM product_images WHERE product_id = :id')
             ->execute([':id' => $id]);
 

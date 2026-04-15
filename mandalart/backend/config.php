@@ -9,10 +9,6 @@ define('JWT_SECRET', getenv('JWT_SECRET') ?: 'csereld_le_egy_min_32_karakteres_r
 require_once __DIR__ . '/config/register_settings.php';
 require_once __DIR__ . '/config/workshop_settings.php';
 
-/**
- * If true, password reset returns the JWT in the JSON body (local testing only).
- * Never enable in production — reset links must be delivered by email only.
- */
 if (!defined('MANDALART_DEV_EXPOSE_RESET_TOKEN')) {
     define(
         'MANDALART_DEV_EXPOSE_RESET_TOKEN',

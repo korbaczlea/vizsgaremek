@@ -1,4 +1,3 @@
-/** Mirrors backend defaults when API is unavailable. */
 export const defaultHomeContent = {
   slides: [
     { src: "/images/workshop.png", alt: "MandalArt workshop" },

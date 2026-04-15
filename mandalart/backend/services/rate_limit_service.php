@@ -21,7 +21,6 @@ function registration_is_enabled(): bool
     return filter_var(MANDALART_REGISTRATION_OPEN, FILTER_VALIDATE_BOOLEAN);
 }
 
-/** @return array{max: int, window_sec: int} */
 function register_rate_limit_config(): array
 {
     $max = (int) MANDALART_REGISTER_RATE_MAX_PER_IP;

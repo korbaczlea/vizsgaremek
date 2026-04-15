@@ -115,7 +115,6 @@ export default function Order({ loggedIn = false }) {
       ) : (
         <div className="order-grid">
           {products.map((product) => {
-            // Fallback local images by id/name if DB image_url is empty
             let fallbackImage = null;
             if (product.id === 1 || product.name?.includes("12")) {
               fallbackImage = "/images/little_mandala.png";

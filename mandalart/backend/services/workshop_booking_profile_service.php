@@ -5,9 +5,6 @@ require_once __DIR__ . '/../models/workshop_session_model.php';
 require_once __DIR__ . '/../models/workshop_waitlist_model.php';
 require_once __DIR__ . '/../models/user_model.php';
 
-/**
- * @return array<string,mixed>|null
- */
 function booking_get_owned(int $bookingId, string $userEmail, int $userId): ?array
 {
     $pdo = get_db();
