@@ -147,6 +147,23 @@ export default function Order({ loggedIn = false }) {
               }
             };
 
+            const handleCardClick = () => {
+              setLightboxProduct({
+                src: imageSrc,
+                description: product.description,
+                price: product.price,
+                currency: product.currency,
+                name: product.name,
+              });
+            };
+
+            const handleCardKeyDown = (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleCardClick();
+              }
+            };
+
             return (
               <div
                 key={product.id}
