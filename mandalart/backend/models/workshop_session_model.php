@@ -35,7 +35,6 @@ function get_workshop_sessions_next_days(int $days): array
     $fromStr = $from->format('Y-m-d H:i:s');
     $toStr = $to->format('Y-m-d H:i:s');
 
-    // Proc is tuned for ~3 weeks; for longer calendar ranges use SQL only.
     if ($days === 21) {
         $pdo = get_db();
         try {
@@ -45,12 +44,9 @@ function get_workshop_sessions_next_days(int $days): array
                 ':to_dt'   => $toStr,
             ]);
             $rows = $stmt->fetchAll() ?: [];
-            while ($stmt->nextRowset()) {
-                // consume extra result sets if any
-            }
+            while ($stmt->nextRowset()) {}
             return $rows;
         } catch (Throwable $e) {
-            // fall through to SQL
         }
     }
 
@@ -114,7 +110,6 @@ function create_or_get_user_by_booking(string $firstName, string $lastName, stri
         $name = $email;
     }
 
-    // Temp password for hash storage; real user can reset later.
     $tempPass = bin2hex(random_bytes(16));
     $hash = password_hash($tempPass, PASSWORD_BCRYPT);
 
@@ -123,7 +118,6 @@ function create_or_get_user_by_booking(string $firstName, string $lastName, stri
         throw new Exception('Failed to create user');
     }
 
-    // Note: get_user_by_email again to retrieve id (simpler than lastInsertId with shared PDO).
     $user2 = get_user_by_email($email);
     if (!$user2) {
         throw new Exception('User not found after create');
@@ -185,8 +179,6 @@ function admin_create_workshop_session(array $data): int
             $workshopId = (int) ($stmt->fetchColumn() ?: 0);
         }
 
-        // If there are no workshops in the DB yet, create a default one
-        // so workshop_sessions FK constraints can be satisfied.
         if ($workshopId <= 0) {
             $stmt = $pdo->query("SELECT id FROM workshops WHERE slug = 'default-workshop' LIMIT 1");
             $workshopId = (int) ($stmt->fetchColumn() ?: 0);
@@ -279,9 +271,6 @@ function admin_delete_workshop_session(int $id): bool
     return $stmt->execute([':id' => $id]);
 }
 
-/**
- * Update status on a row in `bookings` (session-based workshop participant).
- */
 function admin_update_session_booking_status(int $bookingId, string $status): bool
 {
     $allowed = ['pending', 'confirmed', 'cancelled', 'attended'];
@@ -302,9 +291,6 @@ function admin_update_session_booking_status(int $bookingId, string $status): bo
     return true;
 }
 
-/**
- * Delete a row from `bookings`. Returns session_id if deleted, null if not found.
- */
 function admin_delete_session_booking(int $bookingId): ?int
 {
     if ($bookingId <= 0) {

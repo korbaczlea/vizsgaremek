@@ -9,7 +9,6 @@ $sessions = array_values(array_filter(
     }
 ));
 
-// Frontend elvárás: id, booking_date, start_time, end_time, available_spots, workshop_title
 $result = array_map(
     static function (array $s): array {
         return [

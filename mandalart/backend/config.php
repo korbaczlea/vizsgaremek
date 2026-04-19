@@ -9,16 +9,27 @@ define('JWT_SECRET', getenv('JWT_SECRET') ?: 'csereld_le_egy_min_32_karakteres_r
 require_once __DIR__ . '/config/register_settings.php';
 require_once __DIR__ . '/config/workshop_settings.php';
 
-/**
- * If true, password reset returns the JWT in the JSON body (local testing only).
- * Never enable in production — reset links must be delivered by email only.
- */
 if (!defined('MANDALART_DEV_EXPOSE_RESET_TOKEN')) {
     define(
         'MANDALART_DEV_EXPOSE_RESET_TOKEN',
         filter_var(getenv('MANDALART_DEV_EXPOSE_RESET_TOKEN') ?: 'false', FILTER_VALIDATE_BOOLEAN)
     );
 }
+
+$sendgridKey = getenv('SENDGRID_API_KEY');
+define('SENDGRID_API_KEY', is_string($sendgridKey) ? trim($sendgridKey) : '');
+
+$mailFrom = getenv('MANDALART_MAIL_FROM');
+define(
+    'MANDALART_MAIL_FROM',
+    (is_string($mailFrom) && $mailFrom !== '') ? $mailFrom : 'noreply@mandalart.shop'
+);
+
+$publicOrigin = getenv('MANDALART_PUBLIC_ORIGIN');
+define(
+    'MANDALART_PUBLIC_ORIGIN',
+    (is_string($publicOrigin) && $publicOrigin !== '') ? rtrim($publicOrigin, '/') : ''
+);
 
 function get_db(): PDO {
     static $pdo = null;

@@ -15,7 +15,6 @@ if (!$email) {
     send_json('missing_auth_header', 401);
 }
 
-// Never trust client-provided email for authenticated requests.
 $data['email'] = $email;
 
 $userRow = get_user_by_email($email);

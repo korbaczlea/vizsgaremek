@@ -13,8 +13,6 @@ if (!is_array($data)) {
     send_json('malformed_request', 400);
 }
 
-// Admin create input:
-// booking_date (yyyy-mm-dd), booking_time (HH:MM), first_name, last_name, email, phone
 $date      = trim((string) ($data['booking_date'] ?? ''));
 $time      = trim((string) ($data['booking_time'] ?? ''));
 $firstName = trim((string) ($data['first_name'] ?? ''));

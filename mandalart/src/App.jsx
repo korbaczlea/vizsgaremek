@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
 import "./App.css";
 
-// Oldalak
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Gallery from "./pages/Gallery";
@@ -12,9 +11,9 @@ import Workshop from "./pages/Workshop";
 import Order from "./pages/Order";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
+import ResetPassword from "./pages/ResetPassword";
 import API_BASE_URL from "./config/api";
 
-// Cart
 import { CartProvider, useCart } from "./context/CartContext";
 import CartDrawer from "./components/CartDrawer";
 import AccessibleModal from "./components/AccessibleModal";
@@ -28,7 +27,6 @@ function isStrongPassword(password) {
   return true;
 }
 
-/** Base64 for Unicode strings (btoa alone only supports Latin-1). */
 function utf8ToBase64(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = "";
@@ -74,7 +72,6 @@ function UserCircleIcon() {
   );
 }
 
-// Header komponens
 function Header() {
   return (
     <header className="hero">
@@ -89,7 +86,6 @@ function Header() {
   );
 }
 
-// Menü komponens
 function NavMenu({ showAdmin = false, loggedIn = false }) {
   return (
     <nav className="menu">
@@ -107,14 +103,13 @@ function NavMenu({ showAdmin = false, loggedIn = false }) {
   );
 }
 
-// Login Modal
 function LoginModal({ isOpen, onClose, onSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("login"); // "login" | "forgot"
+  const [mode, setMode] = useState("login");
   const [info, setInfo] = useState("");
 
   const resetState = () => {
@@ -168,7 +163,6 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
         return;
       }
 
-      // JWT elmentése – későbbi védett endpointokhoz
       localStorage.setItem("mandalart_token", data.token);
 
       if (onSuccess) {
@@ -223,6 +217,18 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
         return;
       }
 
+      if (data.status === "email_not_configured") {
+        setError(
+          "Password reset email is not configured on the server (SendGrid key or public site URL)."
+        );
+        return;
+      }
+
+      if (data.status === "email_send_failed") {
+        setError("The reset email could not be sent. Please try again later.");
+        return;
+      }
+
       if (!res.ok || data.status !== "success") {
         setError("Could not start password reset. Please try again.");
         return;
@@ -253,6 +259,7 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                data-initial-focus="true"
                 required
               />
             </div>
@@ -298,6 +305,7 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                data-initial-focus="true"
                 required
               />
             </div>
@@ -322,7 +330,6 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
   );
 }
 
-// Register Modal
 function RegisterModal({ isOpen, onClose, onSuccess }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -422,7 +429,13 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Name:</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} required />
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              data-initial-focus="true"
+              required
+            />
           </div>
           <div className="form-group">
             <label>Email:</label>
@@ -479,7 +492,6 @@ function RegisterModal({ isOpen, onClose, onSuccess }) {
   );
 }
 
-// Auth Buttons
 function AuthButtons({ onLoginClick, onRegisterClick, loggedIn, registrationOpen }) {
   if (loggedIn) return null;
   return (
@@ -499,7 +511,6 @@ function AuthButtons({ onLoginClick, onRegisterClick, loggedIn, registrationOpen
   );
 }
 
-// Cart icon (badge)
 function CartIconButton({ onClick }) {
   const { totals } = useCart();
 
@@ -531,7 +542,6 @@ function ProfileIconButton({ loggedIn, unreadSupportCount }) {
   );
 }
 
-// App komponens
 export default function App() {
   const [tokenValue, setTokenValue] = useState(() => localStorage.getItem("mandalart_token"));
   const [loginOpen, setLoginOpen] = useState(false);
@@ -564,9 +574,7 @@ export default function App() {
       }
       if (!res.ok || data.status !== "success") return;
       setContactUnreadCount(Number(data.unread_count ?? 0));
-    } catch {
-      // keep previous count
-    }
+    } catch {}
   }, []);
 
   const handleLoginClick = () => setLoginOpen(true);
@@ -714,7 +722,6 @@ export default function App() {
         <Header />
         <NavMenu showAdmin={isAdmin} loggedIn={loggedIn} />
 
-        {/* Jobb felső: Auth + Cart */}
         <div className="top-right">
           <AuthButtons
             onLoginClick={handleLoginClick}
@@ -740,15 +747,16 @@ export default function App() {
         />
 
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Home loggedIn={loggedIn} />} />
           <Route path="/About" element={<About />} />
           <Route path="/Gallery" element={<Gallery />} />
           <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
           <Route path="/Prices" element={<Prices />} />
-          <Route path="/Workshop" element={<Workshop />} />
+          <Route path="/Workshop" element={<Workshop loggedIn={loggedIn} />} />
           <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
           <Route path="/Admin" element={<Admin />} />
           <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </div>
     </CartProvider>

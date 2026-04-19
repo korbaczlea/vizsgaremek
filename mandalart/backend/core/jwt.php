@@ -2,9 +2,6 @@
 
 require_once __DIR__ . '/../config.php';
 
-/**
- * Egyszerű JWT HS256 – composer nélkül működik.
- */
 class JWT
 {
     private static function base64url_encode(string $data): string

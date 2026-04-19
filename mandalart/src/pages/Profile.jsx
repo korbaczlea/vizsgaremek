@@ -99,9 +99,7 @@ export default function Profile({ onLogout }) {
         window.dispatchEvent(new CustomEvent("mandalart:contactUnreadRefresh"));
       }
     } catch {
-      if (!silent) {
-        // keep page usable; no hard error for messaging refresh
-      }
+      if (!silent) {}
     }
   };
 
@@ -138,7 +136,6 @@ export default function Profile({ onLogout }) {
       }
 
       setProfileReplyDrafts((d) => ({ ...d, [conversationId]: "" }));
-      // Refresh conversation; since user is in messages view, mark read as needed.
       await loadContact({ silent: true, markRead: true });
     } catch (err) {
       setProfileReplyError(err?.message || "Failed to send reply.");
@@ -191,11 +188,8 @@ export default function Profile({ onLogout }) {
         if (waitResp.res.ok && waitResp.data.status === "success") {
           waitlist = Array.isArray(waitResp.data.waitlist) ? waitResp.data.waitlist : [];
         }
-      } catch {
-        /* optional endpoint */
-      }
+      } catch {}
       setWorkshopWaitlist(waitlist);
-      // Messaging is loaded separately so we can support real-time polling without auto-marking as read.
     } catch {
       if (silent) {
         setProfileMsg("Could not refresh profile data.");
@@ -355,7 +349,6 @@ export default function Profile({ onLogout }) {
 
   useEffect(() => {
     loadAll();
-    // Start polling messages right away (do not mark as read during polling).
     loadContact({ silent: true, markRead: false });
 
     const pollMs = 30000;
@@ -364,7 +357,6 @@ export default function Profile({ onLogout }) {
     }, pollMs);
 
     return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesOpen]);
 
   const onProfileSave = async (e) => {

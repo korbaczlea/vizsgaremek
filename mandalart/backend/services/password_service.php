@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/user_model.php';
 require_once __DIR__ . '/../core/jwt.php';
+require_once __DIR__ . '/sendgrid_mail.php';
 
 function is_strong_password(string $password): bool
 {
@@ -28,12 +29,41 @@ function process_chpass_request(string $email): array
         return ['status' => 'email_not_registered', 'code' => 404];
     }
 
+    $mailReady = SENDGRID_API_KEY !== '' && MANDALART_PUBLIC_ORIGIN !== '';
+    if (!$mailReady) {
+        if (MANDALART_DEV_EXPOSE_RESET_TOKEN) {
+            $token = JWT::generate_reset_token($email);
+
+            return [
+                'status' => 'success',
+                'code'   => 200,
+                'token'  => $token,
+            ];
+        }
+
+        return ['status' => 'email_not_configured', 'code' => 503];
+    }
+
     $token = JWT::generate_reset_token($email);
-    // In production, send $token by email only — do not expose in API responses.
+    $sent  = mandalart_send_password_reset_email($email, $token);
+    if (!$sent['ok']) {
+        error_log('mandalart password reset mail: ' . json_encode($sent, JSON_UNESCAPED_UNICODE));
+        if (MANDALART_DEV_EXPOSE_RESET_TOKEN) {
+            return [
+                'status' => 'success',
+                'code'   => 200,
+                'token'  => $token,
+            ];
+        }
+
+        return ['status' => 'email_send_failed', 'code' => 500];
+    }
+
     $out = ['status' => 'success', 'code' => 200];
     if (MANDALART_DEV_EXPOSE_RESET_TOKEN) {
         $out['token'] = $token;
     }
+
     return $out;
 }
 

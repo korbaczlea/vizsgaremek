@@ -68,7 +68,6 @@ function site_pages_default_about(): array
     ];
 }
 
-/** @param mixed $saved */
 function site_pages_merge_home(array $defaults, $saved): array
 {
     if (!is_array($saved)) {
@@ -94,7 +93,6 @@ function site_pages_merge_home(array $defaults, $saved): array
     return $out;
 }
 
-/** @param mixed $saved */
 function site_pages_merge_about(array $defaults, $saved): array
 {
     if (!is_array($saved)) {
@@ -108,7 +106,6 @@ function site_pages_merge_about(array $defaults, $saved): array
     return $out;
 }
 
-/** Merged Home payload for storefront (defaults + optional DB overlay `page_home`). */
 function home_page_get_public(): array
 {
     site_settings_ensure_tables();
@@ -118,7 +115,6 @@ function home_page_get_public(): array
     return site_pages_merge_home($homeD, $hj ? json_decode($hj, true) : null);
 }
 
-/** Merged About payload (defaults + optional DB overlay `page_about`). */
 function about_page_get_public(): array
 {
     site_settings_ensure_tables();
@@ -128,7 +124,6 @@ function about_page_get_public(): array
     return site_pages_merge_about($abD, $aj ? json_decode($aj, true) : null);
 }
 
-/** @return array{home: array, about: array} */
 function site_pages_get_admin(): array
 {
     return [
@@ -137,10 +132,6 @@ function site_pages_get_admin(): array
     ];
 }
 
-/**
- * @param array<string,mixed> $data
- * @return array{ok:bool, error?:string}
- */
 function site_pages_apply_admin_update(array $data): array
 {
     if (isset($data['home'])) {

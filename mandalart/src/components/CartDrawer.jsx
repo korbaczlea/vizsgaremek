@@ -86,7 +86,6 @@ export default function CartDrawer({ open, onClose }) {
 
       setSuccess("Order placed successfully! We will contact you soon.");
       clearCart();
-      // a checkout nyitva marad, hogy az üzenet látszódjon
       setForm((p) => ({ ...p, payment: "Cash on delivery" }));
     } catch (err) {
       console.error(err);
@@ -119,8 +118,17 @@ export default function CartDrawer({ open, onClose }) {
           <div className="cart-list">
             {items.map((p) => (
               <div className="cart-line" key={p.id}>
-                <div className="cart-line__left">
+                <div className="cart-line__thumb">
+                  {p.image ? (
+                    <img src={p.image} alt="" />
+                  ) : (
+                    <div className="cart-line__thumbPlaceholder" aria-hidden="true" />
+                  )}
+                </div>
+
+                <div className="cart-line__main">
                   <div className="cart-line__title">{p.name}</div>
+                  {p.description ? <p className="cart-line__desc">{p.description}</p> : null}
 
                   <div className="cart-line__meta">
                     <label>Qty</label>

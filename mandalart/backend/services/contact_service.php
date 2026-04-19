@@ -12,7 +12,6 @@ function process_contact_message(array $payload): array
     $subject   = trim((string)($payload['subject'] ?? ''));
     $message   = trim((string)($payload['message'] ?? ''));
 
-    // Accept either (name) or (first_name + last_name). The UI uses just "name".
     if ($nameRaw !== '' && ($firstName === '' && $lastName === '')) {
         $parts = preg_split('/\s+/', $nameRaw) ?: [];
         $firstName = trim((string)($parts[0] ?? ''));

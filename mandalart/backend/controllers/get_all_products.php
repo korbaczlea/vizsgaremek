@@ -4,7 +4,6 @@ require_once __DIR__ . '/../models/product_model.php';
 
 $products = get_all_products();
 
-// A frontend elvárt struktúrája: id, name, price, currency, image, description
 $normalized = array_map(
     static function (array $row): array {
         return [

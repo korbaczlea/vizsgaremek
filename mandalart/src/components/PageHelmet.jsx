@@ -10,9 +10,6 @@ function absoluteUrl(path) {
   return `${base.replace(/\/$/, "")}${p}`;
 }
 
-/**
- * Per-route title, description, and Open Graph tags for sharing and SEO.
- */
 export default function PageHelmet({
   title,
   description = DEFAULT_DESCRIPTION,

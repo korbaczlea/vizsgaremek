@@ -1,6 +1,24 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../config/api";
 import PageHelmet from "../components/PageHelmet";
+
+function normalizeEmail(s) {
+  return String(s || "").trim().toLowerCase();
+}
+
+function emailFromStoredJwt() {
+  const t = localStorage.getItem("mandalart_token");
+  if (!t || !t.includes(".")) return "";
+  try {
+    const payloadPart = t.split(".")[1];
+    const padded = payloadPart + "=".repeat((4 - (payloadPart.length % 4)) % 4);
+    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(json);
+    return normalizeEmail(payload.email);
+  } catch {
+    return "";
+  }
+}
 
 function toISODate(d) {
   const y = d.getFullYear();
@@ -9,7 +27,6 @@ function toISODate(d) {
   return `${y}-${m}-${day}`;
 }
 
-/** Monday = 0 … Sunday = 6 */
 function mondayIndex(d) {
   return (d.getDay() + 6) % 7;
 }
@@ -40,13 +57,15 @@ function addMonths(d, delta) {
   return x;
 }
 
-export default function Workshop() {
+export default function Workshop({ loggedIn = false }) {
   const [calendarSessions, setCalendarSessions] = useState([]);
   const [deadlineHours, setDeadlineHours] = useState(48);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [waitlistSuccess, setWaitlistSuccess] = useState("");
+  /** Account email (JWT first, then profile_me) — form email must match when logged in. */
+  const [expectedEmail, setExpectedEmail] = useState("");
 
   const [viewMode, setViewMode] = useState("month"); // "month" | "week"
   const [monthAnchor, setMonthAnchor] = useState(() => new Date());
@@ -65,6 +84,47 @@ export default function Workshop() {
   const onChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
+
+  const loadProfileIntoForm = useCallback(async () => {
+    const token = localStorage.getItem("mandalart_token");
+    if (!loggedIn || !token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/profile_me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        return;
+      }
+      if (!res.ok || data.status !== "success" || !data.user) return;
+      const u = data.user;
+      const name = String(u.name || "").trim();
+      const bits = name.split(/\s+/).filter(Boolean);
+      const firstName = bits[0] || "";
+      const lastName = bits.slice(1).join(" ") || "";
+      setForm({
+        firstName,
+        lastName,
+        email: u.email || "",
+        phone: u.phone || "",
+      });
+      setExpectedEmail(normalizeEmail(u.email));
+    } catch {
+      /* ignore */
+    }
+  }, [loggedIn]);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setExpectedEmail("");
+      return;
+    }
+    setExpectedEmail(emailFromStoredJwt());
+    void loadProfileIntoForm();
+  }, [loggedIn, loadProfileIntoForm]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,6 +227,9 @@ export default function Workshop() {
     if (!form.email.trim()) return "Email is required.";
     if (!form.phone.trim()) return "Phone number is required.";
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return "Please enter a valid email address.";
+    if (loggedIn && expectedEmail && normalizeEmail(form.email) !== expectedEmail) {
+      return "Incorrect email address.";
+    }
     if (!/^[0-9+\s()-]{6,}$/.test(form.phone)) return "Please enter a valid phone number.";
     return "";
   };
@@ -222,7 +285,11 @@ export default function Workshop() {
       setSuccess(
         "Booking successful! We have received your request and will confirm it by email."
       );
-      setForm({ firstName: "", lastName: "", email: "", phone: "" });
+      if (loggedIn) {
+        await loadProfileIntoForm();
+      } else {
+        setForm({ firstName: "", lastName: "", email: "", phone: "" });
+      }
       const calRes = await fetch(`${API_BASE_URL}/api/get_workshop_calendar`);
       const calText = await calRes.text();
       const calData = calText ? JSON.parse(calText) : {};
@@ -558,9 +625,9 @@ export default function Workshop() {
               </div>
             </div>
 
-            {error && <div className="workshop-error">{error}</div>}
-            {success && <div className="workshop-success">{success}</div>}
-            {waitlistSuccess && <div className="workshop-success">{waitlistSuccess}</div>}
+            {error && <div className="app-alert app-alert--error">{error}</div>}
+            {success && <div className="app-alert app-alert--success">{success}</div>}
+            {waitlistSuccess && <div className="app-alert app-alert--success">{waitlistSuccess}</div>}
 
             <div className="workshop-actions">
               <button

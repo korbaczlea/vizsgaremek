@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/config.php';
 
-// CORS
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -29,8 +28,6 @@ function send_json(string $status, int $statusCode, array $extra = []): void
     exit;
 }
 
-// Endpoint meghatározása akkor is működjön, ha a backend almappában fut
-// pl. /api/login_promise vagy /mandalart/backend/api/login_promise.
 $uriPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 $parts   = array_values(array_filter(explode('/', trim($uriPath, '/'))));
 
@@ -206,7 +203,6 @@ switch ($endpoint) {
         require __DIR__ . '/controllers/profile_cancel_workshop_waitlist.php';
         break;
 
-    // Admin endpoints (JWT + admin role required)
     case 'admin_me':
         require_admin($currentUserEmail);
         require __DIR__ . '/controllers/admin_me.php';

@@ -8,9 +8,7 @@ function get_all_products(): array
     try {
         $stmt = $pdo->query('CALL get_all_products_proc()');
         $rows = $stmt->fetchAll() ?: [];
-        while ($stmt->nextRowset()) {
-            // consume extra result sets if any
-        }
+        while ($stmt->nextRowset()) {}
         return $rows;
     } catch (Throwable $e) {
         $stmt = $pdo->query(

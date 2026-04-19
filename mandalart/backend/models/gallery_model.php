@@ -2,20 +2,6 @@
 
 require_once __DIR__ . '/../config.php';
 
-/**
- * SQL (futtasd le a mandalart adatbázison):
- *
- * CREATE TABLE gallery_images (
- *   id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
- *   filename VARCHAR(255) NOT NULL,
- *   title VARCHAR(255) DEFAULT NULL,
- *   sort_order INT NOT NULL DEFAULT 0,
- *   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *   PRIMARY KEY (id),
- *   UNIQUE KEY uniq_gallery_filename (filename)
- * ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
- */
-
 function gallery_has_active_column(): bool
 {
     static $hasActive = null;
@@ -56,7 +42,6 @@ function gallery_list_images(bool $onlyActive = true): array
     $rows = $stmt ? ($stmt->fetchAll() ?: []) : [];
 
     if (!$hasActive) {
-        // Backwards compatibility: treat all as active.
         foreach ($rows as &$r) {
             $r['active'] = 1;
         }

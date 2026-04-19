@@ -152,7 +152,6 @@ export default function Gallery() {
           aria-modal="true"
           aria-label="Enlarged gallery image"
           onMouseDown={(e) => {
-            // Csak akkor zárjuk, ha a háttérre kattintanak.
             if (e.currentTarget === e.target) setLightboxImage(null);
           }}
         >

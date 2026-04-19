@@ -12,13 +12,24 @@ function getFocusables(container) {
   });
 }
 
-/**
- * Dialog overlay with focus trap, Escape to close, and aria-modal.
- */
+function getInitialFocusTarget(container) {
+  const preferred = container.querySelector('[data-initial-focus="true"]');
+  if (preferred && typeof preferred.focus === "function") {
+    return preferred;
+  }
+  const focusables = getFocusables(container);
+  return focusables[0] || container;
+}
+
 export default function AccessibleModal({ isOpen, onClose, title, children }) {
   const dialogRef = useRef(null);
   const titleId = useId();
   const previouslyFocused = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -26,13 +37,13 @@ export default function AccessibleModal({ isOpen, onClose, title, children }) {
     const node = dialogRef.current;
     if (!node) return;
 
-    const focusables = getFocusables(node);
-    (focusables[0] || node).focus();
+    const target = getInitialFocusTarget(node);
+    target.focus();
 
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -62,12 +73,10 @@ export default function AccessibleModal({ isOpen, onClose, title, children }) {
       if (prev && typeof prev.focus === "function") {
         try {
           prev.focus();
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

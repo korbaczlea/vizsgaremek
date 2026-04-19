@@ -3,16 +3,6 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/user_model.php';
 
-/**
- * Rendelés mentése a mandalart-4.sql szerinti sémára:
- * - `carts`
- * - `cart_items`
- * - `orders`
- * - `order_items`
- *
- * A felhasználó azonosítását most guestként kezeljük: users.id = 1.
- */
-
 function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): bool
 {
     $pdo = get_db();
@@ -28,7 +18,6 @@ function create_order(array $customer, array $items, float $total, ?string $curr
             }
         }
 
-        // 1) cart rekord -> carts
         $stmtCart = $pdo->prepare(
             'INSERT INTO carts (user_id, total_price, status, created_at)
              VALUES (:user_id, :total_price, :status, NOW())'
@@ -41,7 +30,6 @@ function create_order(array $customer, array $items, float $total, ?string $curr
 
         $cartId = (int) $pdo->lastInsertId();
 
-        // 2) cart_items rekordok -> cart_items (line_total is kell)
         $stmtItem = $pdo->prepare(
             'INSERT INTO cart_items
              (cart_id, product_id, quantity, price_per_unit, line_total)
@@ -67,7 +55,6 @@ function create_order(array $customer, array $items, float $total, ?string $curr
             ]);
         }
 
-        // 3) orders rekord -> orders (mandalart-4.sql)
         $fullName = trim((string) ($customer['fullName'] ?? ''));
         $email = trim((string) ($customer['email'] ?? 'guest@example.com'));
         if ($currentUserEmail) {
@@ -114,7 +101,6 @@ function create_order(array $customer, array $items, float $total, ?string $curr
 
         $orderId = (int) $pdo->lastInsertId();
 
-        // 4) order_items rekordok
         $stmtOrderItem = $pdo->prepare(
             'INSERT INTO order_items
              (order_id, product_id, product_name, quantity, unit_price, line_total)
@@ -158,9 +144,7 @@ function admin_list_orders(): array
     try {
         $stmt = $pdo->query('CALL admin_list_orders_proc()');
         $rows = $stmt->fetchAll() ?: [];
-        while ($stmt->nextRowset()) {
-            // consume extra result sets if any
-        }
+        while ($stmt->nextRowset()) {}
         return $rows;
     } catch (Throwable $e) {
         $stmt = $pdo->query(

@@ -7,7 +7,6 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/** Below PHP default max_file_uploads (20); each chunk is one multipart request. */
 const GALLERY_UPLOAD_CHUNK_SIZE = 18;
 
 async function fetchJson(url, options = {}) {
@@ -25,11 +24,10 @@ async function fetchJson(url, options = {}) {
 }
 
 export default function Admin() {
-  const [tab, setTab] = useState("products"); // products | gallery | orders | workshop | contact
+  const [tab, setTab] = useState("products");
   const [me, setMe] = useState(null);
   const [authError, setAuthError] = useState("");
 
-  // Products
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
@@ -44,7 +42,6 @@ export default function Admin() {
     is_active: 1,
   });
 
-  // Gallery
   const [gallery, setGallery] = useState([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryError, setGalleryError] = useState("");
@@ -53,30 +50,25 @@ export default function Admin() {
   const [galleryUploadError, setGalleryUploadError] = useState("");
   const [galleryUploadSuccess, setGalleryUploadSuccess] = useState("");
 
-  // Orders
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
 
-  // Contact messages
   const [contactMessages, setContactMessages] = useState([]);
   const [contactMessagesLoading, setContactMessagesLoading] = useState(false);
   const [contactMessagesError, setContactMessagesError] = useState("");
 
-  // Contact replies (admin -> user)
   const [contactReplyDrafts, setContactReplyDrafts] = useState({});
   const [contactReplyLoadingId, setContactReplyLoadingId] = useState(null);
   const [contactReplyError, setContactReplyError] = useState("");
   const [contactReplySuccess, setContactReplySuccess] = useState("");
   const [contactDeleteLoadingId, setContactDeleteLoadingId] = useState(null);
 
-  // Workshop bookings
   const [workshopBookings, setWorkshopBookings] = useState([]);
   const [workshopBookingsLoading, setWorkshopBookingsLoading] = useState(false);
   const [workshopBookingsError, setWorkshopBookingsError] = useState("");
   const [sessionBookingBusyId, setSessionBookingBusyId] = useState(null);
 
-  // Workshop sessions create form
   const [newWorkshopSession, setNewWorkshopSession] = useState({
     booking_date: "",
     start_time: "10:00",
@@ -86,9 +78,6 @@ export default function Admin() {
   });
   const [newWorkshopSessionError, setNewWorkshopSessionError] = useState("");
   const [newWorkshopSessionLoading, setNewWorkshopSessionLoading] = useState(false);
-
-  // Workshop "availability" admin management is separate from participant bookings.
-  // Right now we only allow changing/deleting existing workshop bookings.
 
   const isAdmin = (me?.role || "") === "admin";
 
@@ -393,13 +382,10 @@ export default function Admin() {
     }
   };
 
-  // (Create new booking UI removed as requested.)
-
   useEffect(() => {
     if (!isAdmin) return;
     if (tab === "products") {
       loadProducts();
-      // Gallery is needed for selecting product images.
       loadGallery();
     }
     if (tab === "gallery") loadGallery();
@@ -408,7 +394,6 @@ export default function Admin() {
     if (tab === "contact") loadContactMessages();
   }, [tab, isAdmin]);
 
-  // Real-time refresh (polling) for contact messages when the tab is open.
   useEffect(() => {
     if (!isAdmin || tab !== "contact") return;
 
@@ -1230,7 +1215,6 @@ export default function Admin() {
                     disabled={galleryUploading}
                     onChange={(e) => {
                       if (e.target.files?.length) uploadGalleryFiles(e.target.files);
-                      // allow re-selecting the same file(s)
                       e.target.value = "";
                     }}
                     style={{ display: "none" }}

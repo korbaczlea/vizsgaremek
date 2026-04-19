@@ -1,30 +1,13 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Gép: 127.0.0.1
--- Létrehozás ideje: 2026. Ápr 11. 21:18
--- Kiszolgáló verziója: 10.4.32-MariaDB
--- PHP verzió: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
 
---
--- Adatbázis: `mandalart`
---
 
 DELIMITER $$
---
--- Eljárások
---
+
 CREATE DEFINER=`root`@`localhost` PROCEDURE `admin_list_contact_messages_proc` ()   BEGIN
     SELECT id, first_name, last_name, email, subject, message, created_at
     FROM contact_messages
@@ -99,13 +82,70 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `get_workshop_sessions_next3weeks_pr
     ORDER BY ws.start_datetime ASC;
 END$$
 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_create_proc` (
+    IN `p_name` VARCHAR(150),
+    IN `p_slug` VARCHAR(160),
+    IN `p_description` TEXT,
+    IN `p_price` DECIMAL(10,2),
+    IN `p_stock_quantity` INT,
+    IN `p_category` VARCHAR(100),
+    IN `p_is_active` TINYINT
+)   BEGIN
+    INSERT INTO products (name, slug, description, price, stock_quantity, category, is_active)
+    VALUES (p_name, p_slug, p_description, p_price, p_stock_quantity, p_category, p_is_active);
+
+    SELECT LAST_INSERT_ID() AS product_id;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_update_proc` (
+    IN `p_id` BIGINT UNSIGNED,
+    IN `p_name` VARCHAR(150),
+    IN `p_description` TEXT,
+    IN `p_price` DECIMAL(10,2),
+    IN `p_stock_quantity` INT,
+    IN `p_category` VARCHAR(100),
+    IN `p_is_active` TINYINT
+)   BEGIN
+    UPDATE products
+    SET
+        name = p_name,
+        description = p_description,
+        price = p_price,
+        stock_quantity = p_stock_quantity,
+        category = p_category,
+        is_active = p_is_active
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_delete_proc` (IN `p_id` BIGINT UNSIGNED)   BEGIN
+    DELETE FROM products
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `product_get_by_id_proc` (IN `p_id` BIGINT UNSIGNED)   BEGIN
+    SELECT
+        id,
+        name,
+        slug,
+        description,
+        price,
+        stock_quantity,
+        category,
+        is_active,
+        created_at,
+        updated_at
+    FROM products
+    WHERE id = p_id
+    LIMIT 1;
+END$$
+
 DELIMITER ;
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `bookings`
---
 
 CREATE TABLE `bookings` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -120,20 +160,14 @@ CREATE TABLE `bookings` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `bookings`
---
+
 
 INSERT INTO `bookings` (`id`, `user_id`, `session_id`, `guest_name`, `guest_email`, `guest_phone`, `status`, `num_participants`, `total_price`, `created_at`) VALUES
 (3, 4, 2, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'pending', 1, 0.00, '2026-04-01 19:57:38'),
 (4, 6, 2, 'Pista Eros', 'eros@gmail.com', '312312312', 'pending', 1, 0.00, '2026-04-01 20:11:46'),
 (10, 4, 4, 'Daniel Nemeth', 'daninemeth26@gmail.com', '+36307473300', 'cancelled', 1, 0.00, '2026-04-11 21:10:44');
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `carts`
---
 
 CREATE TABLE `carts` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -144,19 +178,13 @@ CREATE TABLE `carts` (
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `carts`
---
+
 
 INSERT INTO `carts` (`id`, `user_id`, `total_price`, `status`, `created_at`, `updated_at`) VALUES
 (3, 4, 100000.00, 'active', '2026-04-01 19:58:14', NULL),
 (4, 6, 200000.00, 'active', '2026-04-01 20:12:05', NULL);
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `cart_items`
---
 
 CREATE TABLE `cart_items` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -167,19 +195,13 @@ CREATE TABLE `cart_items` (
   `line_total` decimal(10,2) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `cart_items`
---
+
 
 INSERT INTO `cart_items` (`id`, `cart_id`, `product_id`, `quantity`, `price_per_unit`, `line_total`) VALUES
 (3, 3, 1, 2, 50000.00, 100000.00),
 (4, 4, 1, 4, 50000.00, 200000.00);
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `contact_messages`
---
 
 CREATE TABLE `contact_messages` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -191,20 +213,12 @@ CREATE TABLE `contact_messages` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `contact_messages`
---
 
 INSERT INTO `contact_messages` (`id`, `first_name`, `last_name`, `email`, `subject`, `message`, `created_at`) VALUES
 (5, 'Óra', '', 'daninemeth26@gmail.com', 'Segitség', 'asdasda', '2026-04-11 17:59:12'),
 (6, 'Daniel', 'Nemeth', 'daninemeth26@gmail.com', 'Segitség', 'm', '2026-04-11 20:40:53'),
 (7, 'Daniel', 'Nemeth', 'daninemeth26@gmail.com', 'Segitség', 'oijk', '2026-04-11 20:41:11');
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `contact_replies`
---
 
 CREATE TABLE `contact_replies` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -215,19 +229,13 @@ CREATE TABLE `contact_replies` (
   `is_read` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `contact_replies`
---
+
 
 INSERT INTO `contact_replies` (`id`, `contact_message_id`, `admin_email`, `reply_message`, `created_at`, `is_read`) VALUES
 (7, 5, 'daninemeth26@gmail.com', 'asdasdasdasd', '2026-04-11 17:59:27', 1),
 (8, 5, 'daninemeth26@gmail.com', 'Csáó', '2026-04-11 18:00:00', 1);
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `contact_user_replies`
---
 
 CREATE TABLE `contact_user_replies` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -237,18 +245,11 @@ CREATE TABLE `contact_user_replies` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `contact_user_replies`
---
 
 INSERT INTO `contact_user_replies` (`id`, `contact_message_id`, `user_email`, `reply_message`, `created_at`) VALUES
 (5, 5, 'daninemeth26@gmail.com', 'cső', '2026-04-11 17:59:51');
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `gallery_images`
---
 
 CREATE TABLE `gallery_images` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -259,9 +260,6 @@ CREATE TABLE `gallery_images` (
   `active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `gallery_images`
---
 
 INSERT INTO `gallery_images` (`id`, `filename`, `title`, `sort_order`, `created_at`, `active`) VALUES
 (1, '649258302_2094524568063000_380274164442977288_n.jpg', NULL, 0, '2026-03-25 19:02:32', 1),
@@ -289,11 +287,6 @@ INSERT INTO `gallery_images` (`id`, `filename`, `title`, `sort_order`, `created_
 (23, '651698284_1341757677713059_5125986552027286006_n.jpg', NULL, 0, '2026-03-25 19:02:32', 1),
 (24, '653893135_1253859589573409_1697785164064590958_n.jpg', NULL, 0, '2026-03-25 19:02:32', 1);
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `orders`
---
 
 CREATE TABLE `orders` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -316,19 +309,13 @@ CREATE TABLE `orders` (
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `orders`
---
+
 
 INSERT INTO `orders` (`id`, `user_id`, `cart_id`, `order_number`, `full_name`, `email`, `phone`, `country`, `county`, `city`, `postal_code`, `street`, `house_number`, `payment_method`, `order_status`, `total_amount`, `created_at`, `updated_at`) VALUES
 (3, 4, 3, 'ORD-20260401195814-d45ace', 'Daniel Nemeth', 'daninemeth26@gmail.com', '06307473300', 'Magyarország', 'asd', 'Pécs', '7635', 'Csurgó dűlő', '29', 'cash_on_delivery', 'processing', 100000.00, '2026-04-01 19:58:14', '2026-04-01 19:58:33'),
 (4, 6, 4, 'ORD-20260401201205-0f311d', 'Daniel Nemeth', 'eros@gmail.com', '06307473300', 'Magyarország', 'gsdfsd', 'Pécs', '7635', 'Csurgó dűlő', '29', 'cash_on_delivery', 'pending', 200000.00, '2026-04-01 20:12:05', NULL);
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `order_items`
---
 
 CREATE TABLE `order_items` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -340,19 +327,11 @@ CREATE TABLE `order_items` (
   `line_total` decimal(10,2) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `order_items`
---
 
 INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `product_name`, `quantity`, `unit_price`, `line_total`) VALUES
 (3, 3, 1, 'Óra', 2, 50000.00, 100000.00),
 (4, 4, 1, 'Óra', 4, 50000.00, 200000.00);
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `payments`
---
 
 CREATE TABLE `payments` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -366,11 +345,6 @@ CREATE TABLE `payments` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `products`
---
 
 CREATE TABLE `products` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -385,9 +359,7 @@ CREATE TABLE `products` (
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `products`
---
+
 
 INSERT INTO `products` (`id`, `name`, `slug`, `description`, `price`, `stock_quantity`, `category`, `is_active`, `created_at`, `updated_at`) VALUES
 (1, 'Óra', 'ra', '20cm óra', 50000.00, 50001, 'Óra', 1, '2026-03-25 19:05:52', '2026-04-02 11:31:09'),
@@ -401,11 +373,6 @@ INSERT INTO `products` (`id`, `name`, `slug`, `description`, `price`, `stock_qua
 (9, 'Mandala', 'mandala-7', '30cm', 30000.00, 20, '', 1, '2026-04-11 18:08:23', NULL),
 (10, 'Mandala', 'mandala-8', '20cm', 20000.00, 20, '', 1, '2026-04-11 18:08:50', NULL);
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `product_images`
---
 
 CREATE TABLE `product_images` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -416,9 +383,7 @@ CREATE TABLE `product_images` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `product_images`
---
+
 
 INSERT INTO `product_images` (`id`, `product_id`, `image_path`, `alt_text`, `sort_order`, `created_at`) VALUES
 (10, 1, '/gallery_images/649772283_1414100613271152_899958418931778459_n.jpg', NULL, 0, '2026-04-02 11:31:09'),
@@ -432,11 +397,6 @@ INSERT INTO `product_images` (`id`, `product_id`, `image_path`, `alt_text`, `sor
 (18, 9, '/gallery_images/650393968_967347539568338_5104482648103238507_n.jpg', NULL, 0, '2026-04-11 18:08:23'),
 (19, 10, '/gallery_images/650048535_981502784542148_6573124550791091248_n.jpg', NULL, 0, '2026-04-11 18:08:50');
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `rate_limit_events`
---
 
 CREATE TABLE `rate_limit_events` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -445,29 +405,18 @@ CREATE TABLE `rate_limit_events` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `rate_limit_events`
---
+
 
 INSERT INTO `rate_limit_events` (`id`, `action`, `ip`, `created_at`) VALUES
 (1, 'contact_guest', '::1', '2026-04-11 20:41:11');
 
--- --------------------------------------------------------
-
---
--- Tábla szerkezet ehhez a táblához `site_settings`
---
 
 CREATE TABLE `site_settings` (
   `k` varchar(64) NOT NULL,
   `v` mediumtext NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `users`
---
 
 CREATE TABLE `users` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -481,19 +430,13 @@ CREATE TABLE `users` (
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `users`
---
+
 
 INSERT INTO `users` (`id`, `name`, `email`, `password_hash`, `phone`, `role`, `is_active`, `created_at`, `updated_at`) VALUES
 (4, 'Daniel Nemeth', 'daninemeth26@gmail.com', '$2y$10$m2VAi0Ms/V4vqCZS5IybXuiWq2XOEjkn1RJQIKYueuETdJidL2k0G', '06307473300', 'admin', 1, '2026-04-01 19:44:12', '2026-04-01 19:56:46'),
 (6, 'Erős Pista', 'eros@gmail.com', '$2y$10$aDG1n9y03ezEKwGurf2TPeCTt5L8iogYUnEsmHLYsIBB/gOLsZORe', '+36306562255', 'user', 1, '2026-04-01 20:10:41', NULL);
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `workshops`
---
 
 CREATE TABLE `workshops` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -507,18 +450,12 @@ CREATE TABLE `workshops` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `workshops`
---
+
 
 INSERT INTO `workshops` (`id`, `title`, `slug`, `description`, `price`, `duration_minutes`, `max_participants`, `is_active`, `created_at`) VALUES
 (1, 'Workshop', 'default-workshop', NULL, 0.00, 120, 20, 1, '2026-03-25 19:05:05');
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `workshop_sessions`
---
 
 CREATE TABLE `workshop_sessions` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -528,9 +465,7 @@ CREATE TABLE `workshop_sessions` (
   `available_spots` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- A tábla adatainak kiíratása `workshop_sessions`
---
+
 
 INSERT INTO `workshop_sessions` (`id`, `workshop_id`, `start_datetime`, `end_datetime`, `available_spots`) VALUES
 (2, 1, '2026-04-04 12:00:00', '2026-04-04 18:00:00', 5),
@@ -539,11 +474,7 @@ INSERT INTO `workshop_sessions` (`id`, `workshop_id`, `start_datetime`, `end_dat
 (5, 1, '2026-04-25 10:00:00', '2026-04-25 12:00:00', 5),
 (6, 1, '2026-04-11 13:00:00', '2026-04-11 15:00:00', 5);
 
--- --------------------------------------------------------
 
---
--- Tábla szerkezet ehhez a táblához `workshop_waitlist`
---
 
 CREATE TABLE `workshop_waitlist` (
   `id` bigint(20) UNSIGNED NOT NULL,
@@ -555,317 +486,207 @@ CREATE TABLE `workshop_waitlist` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Indexek a kiírt táblákhoz
---
 
---
--- A tábla indexei `bookings`
---
 ALTER TABLE `bookings`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_bookings_user` (`user_id`),
   ADD KEY `fk_bookings_session` (`session_id`);
 
---
--- A tábla indexei `carts`
---
+
 ALTER TABLE `carts`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_carts_user` (`user_id`);
 
---
--- A tábla indexei `cart_items`
---
+
 ALTER TABLE `cart_items`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_cart_product` (`cart_id`,`product_id`),
   ADD KEY `fk_cart_items_product` (`product_id`);
 
---
--- A tábla indexei `contact_messages`
---
+
 ALTER TABLE `contact_messages`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_contact_email` (`email`),
   ADD KEY `idx_contact_created_at` (`created_at`);
 
---
--- A tábla indexei `contact_replies`
---
+
 ALTER TABLE `contact_replies`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_contact_replies_message_id` (`contact_message_id`),
   ADD KEY `idx_contact_replies_is_read` (`is_read`),
   ADD KEY `idx_contact_replies_created_at` (`created_at`);
 
---
--- A tábla indexei `contact_user_replies`
---
+
 ALTER TABLE `contact_user_replies`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_contact_user_replies_message_id` (`contact_message_id`),
   ADD KEY `idx_contact_user_replies_created_at` (`created_at`);
 
---
--- A tábla indexei `gallery_images`
---
+
 ALTER TABLE `gallery_images`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_gallery_filename` (`filename`);
 
---
--- A tábla indexei `orders`
---
+
 ALTER TABLE `orders`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_orders_order_number` (`order_number`),
   ADD KEY `fk_orders_user` (`user_id`),
   ADD KEY `fk_orders_cart` (`cart_id`);
 
---
--- A tábla indexei `order_items`
---
+
 ALTER TABLE `order_items`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_order_items_order` (`order_id`);
 
---
--- A tábla indexei `payments`
---
+
 ALTER TABLE `payments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_payments_user` (`user_id`),
   ADD KEY `fk_payments_order` (`order_id`),
   ADD KEY `fk_payments_booking` (`booking_id`);
 
---
--- A tábla indexei `products`
---
+
 ALTER TABLE `products`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_products_slug` (`slug`);
 
---
--- A tábla indexei `product_images`
---
+
 ALTER TABLE `product_images`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_product_images_product` (`product_id`);
 
---
--- A tábla indexei `rate_limit_events`
---
+
 ALTER TABLE `rate_limit_events`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_action_ip_time` (`action`,`ip`,`created_at`);
 
---
--- A tábla indexei `site_settings`
---
 ALTER TABLE `site_settings`
   ADD PRIMARY KEY (`k`);
 
---
--- A tábla indexei `users`
---
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_users_email` (`email`);
 
---
--- A tábla indexei `workshops`
---
+
 ALTER TABLE `workshops`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_workshops_slug` (`slug`);
 
---
--- A tábla indexei `workshop_sessions`
---
 ALTER TABLE `workshop_sessions`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_ws_workshop` (`workshop_id`);
 
---
--- A tábla indexei `workshop_waitlist`
---
 ALTER TABLE `workshop_waitlist`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_waitlist_session_email` (`session_id`,`guest_email`),
   ADD KEY `idx_waitlist_session` (`session_id`),
   ADD KEY `idx_waitlist_email` (`guest_email`);
 
---
--- A kiírt táblák AUTO_INCREMENT értéke
---
-
---
--- AUTO_INCREMENT a táblához `bookings`
---
 ALTER TABLE `bookings`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
---
--- AUTO_INCREMENT a táblához `carts`
---
+
 ALTER TABLE `carts`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
---
--- AUTO_INCREMENT a táblához `cart_items`
---
+
 ALTER TABLE `cart_items`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
---
--- AUTO_INCREMENT a táblához `contact_messages`
---
+
 ALTER TABLE `contact_messages`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
---
--- AUTO_INCREMENT a táblához `contact_replies`
---
+
 ALTER TABLE `contact_replies`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
---
--- AUTO_INCREMENT a táblához `contact_user_replies`
---
+
 ALTER TABLE `contact_user_replies`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
---
--- AUTO_INCREMENT a táblához `gallery_images`
---
+
 ALTER TABLE `gallery_images`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
---
--- AUTO_INCREMENT a táblához `orders`
---
+
 ALTER TABLE `orders`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
---
--- AUTO_INCREMENT a táblához `order_items`
---
+
 ALTER TABLE `order_items`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
---
--- AUTO_INCREMENT a táblához `payments`
---
+
 ALTER TABLE `payments`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
---
--- AUTO_INCREMENT a táblához `products`
---
+
 ALTER TABLE `products`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
---
--- AUTO_INCREMENT a táblához `product_images`
---
+
 ALTER TABLE `product_images`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
---
--- AUTO_INCREMENT a táblához `rate_limit_events`
---
+
 ALTER TABLE `rate_limit_events`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
---
--- AUTO_INCREMENT a táblához `users`
---
 ALTER TABLE `users`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
---
--- AUTO_INCREMENT a táblához `workshops`
---
+
 ALTER TABLE `workshops`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
---
--- AUTO_INCREMENT a táblához `workshop_sessions`
---
+
 ALTER TABLE `workshop_sessions`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
---
--- AUTO_INCREMENT a táblához `workshop_waitlist`
---
+
 ALTER TABLE `workshop_waitlist`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
---
--- Megkötések a kiírt táblákhoz
---
-
---
--- Megkötések a táblához `bookings`
---
 ALTER TABLE `bookings`
   ADD CONSTRAINT `fk_bookings_session` FOREIGN KEY (`session_id`) REFERENCES `workshop_sessions` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_bookings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
---
--- Megkötések a táblához `carts`
---
+
 ALTER TABLE `carts`
   ADD CONSTRAINT `fk_carts_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
---
--- Megkötések a táblához `cart_items`
---
+
 ALTER TABLE `cart_items`
   ADD CONSTRAINT `fk_cart_items_cart` FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_cart_items_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
 
---
--- Megkötések a táblához `orders`
---
+
 ALTER TABLE `orders`
   ADD CONSTRAINT `fk_orders_cart` FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
---
--- Megkötések a táblához `order_items`
---
+
 ALTER TABLE `order_items`
   ADD CONSTRAINT `fk_order_items_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE;
 
---
--- Megkötések a táblához `payments`
---
+
 ALTER TABLE `payments`
   ADD CONSTRAINT `fk_payments_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_payments_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_payments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
---
--- Megkötések a táblához `product_images`
---
+
 ALTER TABLE `product_images`
   ADD CONSTRAINT `fk_product_images_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE;
 
---
--- Megkötések a táblához `workshop_sessions`
---
+
 ALTER TABLE `workshop_sessions`
   ADD CONSTRAINT `fk_ws_workshop` FOREIGN KEY (`workshop_id`) REFERENCES `workshops` (`id`) ON DELETE CASCADE;
 
---
--- Megkötések a táblához `workshop_waitlist`
---
+
 ALTER TABLE `workshop_waitlist`
   ADD CONSTRAINT `fk_waitlist_session` FOREIGN KEY (`session_id`) REFERENCES `workshop_sessions` (`id`) ON DELETE CASCADE;
 COMMIT;
 
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

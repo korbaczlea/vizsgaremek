@@ -90,9 +90,6 @@ function waitlist_list_for_email(string $email): array
     return $stmt->fetchAll() ?: [];
 }
 
-/**
- * @return array<string,mixed>|null
- */
 function waitlist_pop_first_locked(PDO $pdo, int $sessionId): ?array
 {
     $stmt = $pdo->prepare(

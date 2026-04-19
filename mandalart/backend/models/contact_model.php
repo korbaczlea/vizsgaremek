@@ -40,9 +40,7 @@ function create_contact_message(
             ':subject'    => $subject,
             ':message'    => $message,
         ]);
-        while ($stmt->nextRowset()) {
-            // consume extra result sets if any
-        }
+        while ($stmt->nextRowset()) {}
         return $ok;
     } catch (Throwable $e) {
         $stmt = $pdo->prepare(
@@ -61,7 +59,6 @@ function create_contact_message(
 
 function admin_list_contact_messages(): array
 {
-    // Admin UI needs conversation history, not just the initial contact message.
     return admin_list_contact_conversations_with_replies();
 }
 
@@ -170,7 +167,6 @@ function user_add_contact_reply(int $contactMessageId, string $userEmail, string
 
     $pdo = get_db();
 
-    // Verify ownership: user can only reply to their own contact message email.
     $stmtCheck = $pdo->prepare('SELECT id FROM contact_messages WHERE id = :id AND email = :email LIMIT 1');
     $stmtCheck->execute([':id' => $contactMessageId, ':email' => $userEmail]);
     $row = $stmtCheck->fetch();
@@ -195,7 +191,6 @@ function profile_get_contact_conversations(string $email, bool $markRead = true)
 
     $pdo = get_db();
 
-    // Compute unread count BEFORE marking read.
     $stmtUnread = $pdo->prepare(
         'SELECT COUNT(*) AS cnt
          FROM contact_replies cr
@@ -206,7 +201,6 @@ function profile_get_contact_conversations(string $email, bool $markRead = true)
     $rowUnread = $stmtUnread->fetch();
     $unreadCount = (int) ($rowUnread['cnt'] ?? 0);
 
-    // Fetch all base messages for this email.
     $stmtMsgs = $pdo->prepare(
         'SELECT id, first_name, last_name, subject, message, created_at
          FROM contact_messages
@@ -256,7 +250,6 @@ function profile_get_contact_conversations(string $email, bool $markRead = true)
         ];
     }
 
-    // Fetch user replies and merge.
     $stmtUserReplies = $pdo->prepare(
         'SELECT ur.id, ur.contact_message_id, ur.user_email, ur.reply_message, ur.created_at
          FROM contact_user_replies ur
@@ -278,7 +271,6 @@ function profile_get_contact_conversations(string $email, bool $markRead = true)
         ];
     }
 
-    // Mark all replies as read once the user loads their profile.
     if ($markRead) {
         $pdo->prepare(
             'UPDATE contact_replies cr
@@ -288,20 +280,17 @@ function profile_get_contact_conversations(string $email, bool $markRead = true)
         )->execute([':email' => $email]);
     }
 
-    // Return in desired order (newest conversations first).
     $ordered = [];
     foreach ($messages as $m) {
         $cid = (int) $m['id'];
         if (isset($conversations[$cid])) $ordered[] = $conversations[$cid];
     }
 
-    // Ensure replies are chronological inside each conversation.
     foreach ($ordered as &$c) {
         if (!isset($c['replies']) || !is_array($c['replies'])) continue;
         usort($c['replies'], static function (array $a, array $b): int {
             $ta = $a['created_at'] ?? null;
             $tb = $b['created_at'] ?? null;
-            // created_at is DATETIME string - lexical compare works for ISO-like format.
             if ($ta === $tb) return ((int)($a['id'] ?? 0)) <=> ((int)($b['id'] ?? 0));
             return ($ta ?? '') <=> ($tb ?? '');
         });
@@ -319,7 +308,6 @@ function admin_list_contact_conversations_with_replies(): array
 
     $pdo = get_db();
 
-    // Base messages
     $stmtMsgs = $pdo->query(
         'SELECT id, first_name, last_name, email, subject, message, created_at
          FROM contact_messages
@@ -331,7 +319,6 @@ function admin_list_contact_conversations_with_replies(): array
     $ids = array_map(static fn($m) => (int)$m['id'], $messages);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-    // Support replies (admin)
     $stmtSupport = $pdo->prepare(
         "SELECT cr.id, cr.contact_message_id, cr.admin_email, cr.reply_message, cr.created_at, cr.is_read
          FROM contact_replies cr
@@ -341,7 +328,6 @@ function admin_list_contact_conversations_with_replies(): array
     $stmtSupport->execute($ids);
     $supportReplies = $stmtSupport->fetchAll() ?: [];
 
-    // User replies
     $stmtUser = $pdo->prepare(
         "SELECT ur.id, ur.contact_message_id, ur.user_email, ur.reply_message, ur.created_at
          FROM contact_user_replies ur
@@ -383,7 +369,6 @@ function admin_list_contact_conversations_with_replies(): array
         ];
     }
 
-    // Sort replies chronologically within each conversation.
     foreach ($map as &$row) {
         if (!isset($row['replies']) || !is_array($row['replies'])) continue;
         usort($row['replies'], static function (array $a, array $b): int {
@@ -395,7 +380,6 @@ function admin_list_contact_conversations_with_replies(): array
     }
     unset($row);
 
-    // Keep original base message ordering.
     $out = [];
     foreach ($messages as $m) {
         $out[] = $map[(int)$m['id']];
