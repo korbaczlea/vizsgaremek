@@ -238,6 +238,11 @@ h1 {
     backdrop-filter: blur(4px);
 }
 
+/* Full-page reset flow: sit above sticky nav and fixed top-right controls */
+.modal.reset-password-layer {
+    z-index: 1400;
+}
+
 .modal-content {
     background-color: #fefefe;
     margin: 10% auto;

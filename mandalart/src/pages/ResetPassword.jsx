@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import PageHelmet from "../components/PageHelmet";
+import { EyeIcon, EyeOffIcon } from "../components/AuthPasswordIcons";
 import API_BASE_URL from "../config/api";
 
 function utf8ToBase64(str) {
@@ -28,6 +29,8 @@ export default function ResetPassword() {
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -42,7 +45,7 @@ export default function ResetPassword() {
     }
     if (!isStrongPassword(password)) {
       setError(
-        "Use at least 8 characters with upper and lower case letters, a number, and a symbol."
+        "Password must be at least 8 characters and include lowercase, uppercase, and a special character."
       );
       return;
     }
@@ -73,7 +76,7 @@ export default function ResetPassword() {
 
       if (data.status === "weak_password") {
         setError(
-          "Use at least 8 characters with upper and lower case letters, a number, and a symbol."
+          "Password must be at least 8 characters and include lowercase, uppercase, and a special character."
         );
         return;
       }
@@ -90,76 +93,98 @@ export default function ResetPassword() {
       window.setTimeout(() => navigate("/"), 2500);
     } catch (err) {
       console.error(err);
-      setError("Cannot reach the server. Check your connection and try again.");
+      setError("Cannot connect to backend. Please check that XAMPP Apache and MySQL are running.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main style={{ maxWidth: 520, margin: "0 auto", padding: "30px 20px" }}>
+    <>
       <PageHelmet
         title="Reset password"
         description="Set a new Mandalart account password."
         path="/reset-password"
       />
-      <section
-        style={{
-          background: "white",
-          borderRadius: 16,
-          padding: 28,
-          boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h1 style={{ marginTop: 0, fontSize: "1.5rem" }}>Reset password</h1>
+      <div className="modal reset-password-layer" style={{ display: "block" }} role="presentation">
+        <div
+          className="modal-content"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-password-heading"
+        >
+          <Link to="/" className="close" aria-label="Close and return home">
+            &times;
+          </Link>
+          <h2 id="reset-password-heading">Reset password</h2>
 
-      {done ? (
-        <p className="info-message">
-          Your password was updated. Redirecting to the home page…
-        </p>
-      ) : (
-        <form onSubmit={onSubmit}>
-          {!token ? (
-            <p className="error-message">
-              Missing reset token. Open the link from your email, or{" "}
-              <Link to="/">go home</Link> and use &quot;Forgot password&quot; from sign in.
-            </p>
-          ) : null}
+          {done ? (
+            <p className="info-message">Your password was updated. Redirecting to the home page…</p>
+          ) : (
+            <form onSubmit={onSubmit}>
+              {!token ? (
+                <p className="error-message">
+                  Missing reset token. Open the link from your email, or go home and use &quot;Forgot
+                  password&quot; from sign in.
+                </p>
+              ) : null}
 
-          <div className="form-group">
-            <label htmlFor="reset-new-password">New password</label>
-            <input
-              id="reset-new-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              required
-              disabled={!token}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="reset-confirm-password">Confirm password</label>
-            <input
-              id="reset-confirm-password"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              autoComplete="new-password"
-              required
-              disabled={!token}
-            />
-          </div>
-          <button type="submit" className="login-btn" disabled={loading || !token}>
-            {loading ? "Saving…" : "Save new password"}
-          </button>
-          {error ? <p className="error-message">{error}</p> : null}
-          <p>
-            <Link to="/">Back to home</Link>
-          </p>
-        </form>
-      )}
-      </section>
-    </main>
+              <div className="form-group">
+                <label>New password:</label>
+                <div className="password-field">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    data-initial-focus="true"
+                    required
+                    disabled={!token}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    disabled={!token}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Confirm password:</label>
+                <div className="password-field">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                    disabled={!token}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    disabled={!token}
+                  >
+                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              </div>
+              <button type="submit" className="login-btn" disabled={loading || !token}>
+                {loading ? "Saving..." : "Save new password"}
+              </button>
+              <Link to="/" className="text-link">
+                Back to home
+              </Link>
+              {error ? <p className="error-message">{error}</p> : null}
+            </form>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
