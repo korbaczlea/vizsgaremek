@@ -129,8 +129,7 @@ export default function Order({ loggedIn = false }) {
         <div className="order-grid">
           {products.map((product) => {
             const imageSrc = productImageSrc(product);
-
-            const handleCardClick = () => {
+            const openProductCard = () => {
               setLightboxProduct({
                 src: imageSrc,
                 description: product.description,
@@ -138,30 +137,6 @@ export default function Order({ loggedIn = false }) {
                 currency: product.currency,
                 name: product.name,
               });
-            };
-
-            const handleCardKeyDown = (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleCardClick();
-              }
-            };
-
-            const handleCardClick = () => {
-              setLightboxProduct({
-                src: imageSrc,
-                description: product.description,
-                price: product.price,
-                currency: product.currency,
-                name: product.name,
-              });
-            };
-
-            const handleCardKeyDown = (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleCardClick();
-              }
             };
 
             return (
@@ -171,8 +146,13 @@ export default function Order({ loggedIn = false }) {
                 role="button"
                 tabIndex={0}
                 aria-label={`Open product card: ${product.name}`}
-                onClick={handleCardClick}
-                onKeyDown={handleCardKeyDown}
+                onClick={openProductCard}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openProductCard();
+                  }
+                }}
               >
                 <div className="order-card__image">
                   {imageSrc ? (
