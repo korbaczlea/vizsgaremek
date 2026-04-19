@@ -28,7 +28,7 @@ services:
       JWT_SECRET: csereld_le_egy_min_32_karakteres_random_stringre
       # SendGrid + jelszó-visszaállító link (értékeket tedd a projekt gyökerében lévő .env fájlba)
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
-      MANDALART_PUBLIC_ORIGIN: ${MANDALART_PUBLIC_ORIGIN:-http://localhost:8080}
+      MANDALART_PUBLIC_ORIGIN: ${MANDALART_PUBLIC_ORIGIN:-http://mandalart.shop}
       MANDALART_MAIL_FROM: ${MANDALART_MAIL_FROM:-noreply@mandalart.shop}
     depends_on:
       db:
