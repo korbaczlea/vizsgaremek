@@ -73,21 +73,21 @@ function mandalart_send_password_reset_email(string $toEmail, string $jwtToken):
     $resetUrl = MANDALART_PUBLIC_ORIGIN . '/reset-password?token=' . rawurlencode($jwtToken);
     $from     = MANDALART_MAIL_FROM;
 
-    $plain = "Jelszó visszaállítás\n\n"
-        . "Nyisd meg ezt a linket (1 óráig érvényes):\n"
+    $plain = "Password reset\n\n"
+        . "Open this link to choose a new password. It expires in one hour:\n"
         . $resetUrl . "\n\n"
-        . "Ha nem te kérted, hagyd figyelmen kívül ezt az üzenetet.\n";
+        . "If you did not request a reset, you can ignore this email.\n";
 
-    $html = '<p>Jelszó visszaállítás</p>'
-        . '<p><a href="' . htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8') . '">Új jelszó beállítása</a></p>'
-        . '<p>Ha a gomb nem működik, másold be a böngészőbe:<br><code style="word-break:break-all">'
+    $html = '<p><strong>Password reset</strong></p>'
+        . '<p><a href="' . htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8') . '">Set a new password</a></p>'
+        . '<p>If the button does not work, copy and paste this URL into your browser:<br><code style="word-break:break-all">'
         . htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8') . '</code></p>'
-        . '<p>Ha nem te kérted, hagyd figyelmen kívül ezt az üzenetet.</p>';
+        . '<p>If you did not request a password reset, you can ignore this email.</p>';
 
     $payload = [
         'personalizations' => [['to' => [['email' => $toEmail]]]],
         'from'             => ['email' => $from, 'name' => 'Mandalart'],
-        'subject'          => 'Jelszó visszaállítás — Mandalart',
+        'subject'          => 'Reset your Mandalart password',
         'content'          => [
             ['type' => 'text/plain', 'value' => $plain],
             ['type' => 'text/html', 'value' => $html],
@@ -148,6 +148,79 @@ function mandalart_send_login_notification(string $toEmail): array
         'personalizations' => [['to' => [['email' => $toEmail]]]],
         'from'             => ['email' => $from, 'name' => 'Mandalart'],
         'subject'          => 'New sign-in to your Mandalart account',
+        'content'          => [
+            ['type' => 'text/plain', 'value' => $plain],
+            ['type' => 'text/html', 'value' => $html],
+        ],
+    ];
+
+    return mandalart_sendgrid_mail($payload);
+}
+
+/**
+ * Notify customer after an admin changes their order status.
+ *
+ * @param string $newStatus pending|processing|shipping|delivered|cancelled
+ */
+function mandalart_send_order_status_update_email(
+    string $toEmail,
+    string $customerName,
+    string $orderNumber,
+    string $newStatus
+): array {
+    $from = MANDALART_MAIL_FROM;
+    $site = MANDALART_PUBLIC_ORIGIN !== '' ? MANDALART_PUBLIC_ORIGIN : 'https://mandalart.shop';
+    $profileUrl = rtrim($site, '/') . '/Profile';
+
+    $greeting = trim($customerName) !== '' ? trim($customerName) : 'Customer';
+
+    $copy = [
+        'pending' => [
+            'subject' => "Order {$orderNumber} — received",
+            'line'    => 'Your order is pending confirmation. We will email you again when the status changes.',
+        ],
+        'processing' => [
+            'subject' => "Order {$orderNumber} — being prepared",
+            'line'    => 'We are preparing your items. You will get another update when your order ships.',
+        ],
+        'shipping' => [
+            'subject' => "Order {$orderNumber} — on the way",
+            'line'    => 'Your order has been shipped or handed to the courier. It should reach you soon.',
+        ],
+        'delivered' => [
+            'subject' => "Order {$orderNumber} — delivered",
+            'line'    => 'Your order is marked as delivered. Thank you for shopping with Mandalart.',
+        ],
+        'cancelled' => [
+            'subject' => "Order {$orderNumber} — cancelled",
+            'line'    => 'Your order has been cancelled. If you did not request this, please contact us.',
+        ],
+    ];
+
+    $block = $copy[$newStatus] ?? [
+        'subject' => "Order {$orderNumber} — status update",
+        'line'    => 'Your order status has been updated.',
+    ];
+
+    $plain = "Hi {$greeting},\n\n"
+        . "Order: {$orderNumber}\n"
+        . 'New status: ' . $newStatus . "\n\n"
+        . $block['line'] . "\n\n"
+        . "View your orders: {$profileUrl}\n\n"
+        . "— Mandalart\n";
+
+    $statusEsc = htmlspecialchars($newStatus, ENT_QUOTES, 'UTF-8');
+    $html = '<p>Hi ' . htmlspecialchars($greeting, ENT_QUOTES, 'UTF-8') . ',</p>'
+        . '<p><strong>Order:</strong> ' . htmlspecialchars($orderNumber, ENT_QUOTES, 'UTF-8') . '<br>'
+        . '<strong>New status:</strong> ' . $statusEsc . '</p>'
+        . '<p>' . htmlspecialchars($block['line'], ENT_QUOTES, 'UTF-8') . '</p>'
+        . '<p><a href="' . htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') . '">View your orders</a></p>'
+        . '<p>— Mandalart</p>';
+
+    $payload = [
+        'personalizations' => [['to' => [['email' => $toEmail]]]],
+        'from'             => ['email' => $from, 'name' => 'Mandalart'],
+        'subject'          => $block['subject'],
         'content'          => [
             ['type' => 'text/plain', 'value' => $plain],
             ['type' => 'text/html', 'value' => $html],

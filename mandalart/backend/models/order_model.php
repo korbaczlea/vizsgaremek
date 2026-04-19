@@ -170,6 +170,25 @@ function admin_list_orders(): array
     }
 }
 
+function get_order_for_notification(int $orderId): ?array
+{
+    if ($orderId <= 0) {
+        return null;
+    }
+
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT id, order_number, email, full_name, order_status
+         FROM orders
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $orderId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
 function admin_update_order_status(int $orderId, string $status): bool
 {
     $pdo = get_db();
