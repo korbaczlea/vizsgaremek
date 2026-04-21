@@ -473,6 +473,95 @@ h1 {
     display: none;
 }
 
+.consent-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: #4b5563;
+    margin: 6px 0 12px;
+    line-height: 1.55;
+}
+
+.consent-row input[type="checkbox"] {
+    margin-top: 2px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+
+.consent-row a {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.cookie-banner {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 3200;
+    margin: 0 auto;
+    max-width: 980px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+    padding: 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cookie-banner__text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: #374151;
+}
+
+.cookie-banner__text a {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.cookie-banner__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.cookie-banner__btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.18s;
+}
+
+.cookie-banner__btn:hover {
+    background: var(--accentHover);
+    transform: translateY(-1px);
+}
+
+.cookie-banner__btn--ghost {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.cookie-banner__btn--ghost:hover {
+    background: rgba(185, 108, 156, 0.1);
+    color: var(--accent);
+}
+
 
 .workshop-card,
 .order-card,
@@ -907,6 +996,50 @@ h1 {
     color: var(--muted);
 }
 
+.order-filters {
+    margin: 0 0 20px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.order-filters input,
+.order-filters select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e6e0da;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: "Segoe UI", sans-serif;
+    box-sizing: border-box;
+    background: #fff;
+}
+
+.order-filters input:focus,
+.order-filters select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.order-filters__clearBtn {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    font-family: "Segoe UI", sans-serif;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.order-filters__clearBtn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(185, 108, 156, 0.08);
+}
+
 
 .order-grid {
     display: grid;
@@ -1337,6 +1470,18 @@ h1 {
     }
 }
 
+@media (max-width: 860px) {
+    .order-filters {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .order-filters {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 .top-right {
     position: fixed;
@@ -1346,6 +1491,36 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.app-footer {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.app-footer__inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 14px 20px 20px;
+    font-size: 13px;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.app-footer__linkBtn {
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 0;
+    text-decoration: underline;
 }
 
 
@@ -1680,6 +1855,17 @@ h1 {
 @media (max-width: 520px) {
     .cart-row {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .cookie-banner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cookie-banner__actions {
+        justify-content: flex-end;
     }
 }
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import API_BASE_URL from "../config/api";
 
@@ -20,6 +21,7 @@ export default function CartDrawer({ open, onClose }) {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const totalFormatted = useMemo(() => totals.total.toFixed(2), [totals.total]);
 
@@ -36,6 +38,7 @@ export default function CartDrawer({ open, onClose }) {
     for (const k of required) {
       if (!form[k]?.trim()) return "Please fill in all required fields.";
     }
+    if (!privacyConsent) return "Please accept the Privacy Policy before placing your order.";
     return "";
   };
 
@@ -87,6 +90,7 @@ export default function CartDrawer({ open, onClose }) {
       setSuccess("Order placed successfully! We will contact you soon.");
       clearCart();
       setForm((p) => ({ ...p, payment: "Cash on delivery" }));
+      setPrivacyConsent(false);
     } catch (err) {
       console.error(err);
       setError(
@@ -230,6 +234,18 @@ export default function CartDrawer({ open, onClose }) {
                 </select>
                 <p className="cart-note">Only cash on delivery is available at the moment.</p>
               </div>
+
+              <label className="consent-row">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                />
+                <span>
+                  I agree to the processing of my personal data according to the{" "}
+                  <Link to="/Privacy">Privacy Policy</Link>.
+                </span>
+              </label>
 
               <button className="cart-placebtn" type="submit">
                 Place order

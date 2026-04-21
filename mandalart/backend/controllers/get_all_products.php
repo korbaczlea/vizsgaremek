@@ -11,6 +11,7 @@ $normalized = array_map(
             'name'        => $row['name'],
             'description' => $row['description'] ?? '',
             'price'       => (float) $row['price'],
+            'category'    => $row['category'] ?? null,
             'currency'    => 'HUF',
             'image'       => $row['image_url'] ?? null,
         ];

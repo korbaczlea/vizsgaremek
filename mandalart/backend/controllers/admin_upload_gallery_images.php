@@ -11,9 +11,14 @@ if (!$filesField) {
     send_json('malformed_request', 400, ['message' => 'Missing files field']);
 }
 
-$publicImagesDir = realpath(__DIR__ . '/../../public/gallery_images');
-if (!$publicImagesDir || !is_dir($publicImagesDir)) {
-    send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
+$publicImagesDir = __DIR__ . '/../../public/gallery_images';
+if (!is_dir($publicImagesDir)) {
+    if (!mkdir($publicImagesDir, 0775, true) && !is_dir($publicImagesDir)) {
+        send_json('server_error', 500, ['message' => 'Failed to create public/gallery_images directory']);
+    }
+}
+if (!is_writable($publicImagesDir)) {
+    send_json('server_error', 500, ['message' => 'public/gallery_images directory is not writable']);
 }
 
 $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];

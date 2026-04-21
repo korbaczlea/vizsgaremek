@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import PageHelmet from "../components/PageHelmet";
 import API_BASE_URL from "../config/api";
 
@@ -11,6 +12,7 @@ export default function Contact({ loggedIn = false }) {
   });
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", text: "" });
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const maxChars = 300;
 
   const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -18,6 +20,13 @@ export default function Contact({ loggedIn = false }) {
   const onSubmit = async (e) => {
     e.preventDefault();
     setFeedback({ type: "", text: "" });
+    if (!privacyConsent) {
+      setFeedback({
+        type: "error",
+        text: "Please accept the Privacy Policy before submitting.",
+      });
+      return;
+    }
 
     try {
       setLoading(true);
@@ -105,6 +114,7 @@ export default function Contact({ loggedIn = false }) {
       }
 
       setForm({ name: "", email: "", subject: "", message: "" });
+      setPrivacyConsent(false);
       setFeedback({
         type: "success",
         text: "Thank you. We will get in touch with you by email.",
@@ -194,6 +204,18 @@ export default function Contact({ loggedIn = false }) {
               {form.message.length}/{maxChars}
             </div>
           </div>
+
+          <label className="consent-row">
+            <input
+              type="checkbox"
+              checked={privacyConsent}
+              onChange={(e) => setPrivacyConsent(e.target.checked)}
+            />
+            <span>
+              I agree to the processing of my personal data according to the{" "}
+              <Link to="/Privacy">Privacy Policy</Link>.
+            </span>
+          </label>
 
           {feedback.text ? (
             <p

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCart } from "../context/CartContext";
 import API_BASE_URL from "../config/api";
 import PageHelmet from "../components/PageHelmet";
@@ -24,6 +24,10 @@ export default function Order({ loggedIn = false }) {
   const [error, setError] = useState("");
   const [lightboxProduct, setLightboxProduct] = useState(null);
   const [zoomImageSrc, setZoomImageSrc] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +86,48 @@ export default function Order({ loggedIn = false }) {
     addToCart({ ...product, image: productImageSrc(product) || product.image });
   };
 
+  const categories = useMemo(() => {
+    const set = new Set();
+    for (const product of products) {
+      const category = String(product.category || "").trim();
+      if (category) set.add(category);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const min = minPrice === "" ? null : Number(minPrice);
+    const max = maxPrice === "" ? null : Number(maxPrice);
+
+    return products.filter((product) => {
+      const productName = String(product.name || "").toLowerCase();
+      const productDescription = String(product.description || "").toLowerCase();
+      const category = String(product.category || "").trim();
+      const price = Number(product.price || 0);
+
+      const searchPass =
+        normalizedSearch === "" ||
+        productName.includes(normalizedSearch) ||
+        productDescription.includes(normalizedSearch) ||
+        category.toLowerCase().includes(normalizedSearch);
+
+      const categoryPass =
+        selectedCategory === "all" || category === selectedCategory;
+
+      const minPass = min === null || (!Number.isNaN(min) && price >= min);
+      const maxPass = max === null || (!Number.isNaN(max) && price <= max);
+
+      return searchPass && categoryPass && minPass && maxPass;
+    });
+  }, [products, searchQuery, selectedCategory, minPrice, maxPrice]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
+    selectedCategory !== "all" ||
+    minPrice !== "" ||
+    maxPrice !== "";
+
   useEffect(() => {
     if (!lightboxProduct) return;
 
@@ -123,11 +169,62 @@ export default function Order({ loggedIn = false }) {
 
       {error && <p className="order-error">{error}</p>}
 
+      <section className="order-filters" aria-label="Product filters">
+        <input
+          type="search"
+          placeholder="Search products..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          aria-label="Filter by category"
+        >
+          <option value="all">All categories</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          placeholder="Min price"
+          value={minPrice}
+          onChange={(e) => setMinPrice(e.target.value)}
+        />
+        <input
+          type="number"
+          min="0"
+          step="1"
+          placeholder="Max price"
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(e.target.value)}
+        />
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            className="order-filters__clearBtn"
+            onClick={() => {
+              setSearchQuery("");
+              setSelectedCategory("all");
+              setMinPrice("");
+              setMaxPrice("");
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </section>
+
       {loading ? (
         <p>Loading products...</p>
       ) : (
         <div className="order-grid">
-          {products.map((product) => {
+          {filteredProducts.map((product) => {
             const imageSrc = productImageSrc(product);
             const openProductCard = () => {
               setLightboxProduct({
@@ -194,6 +291,9 @@ export default function Order({ loggedIn = false }) {
           })}
         </div>
       )}
+      {!loading && !error && filteredProducts.length === 0 ? (
+        <p className="order-subtitle">No products match the selected filters.</p>
+      ) : null}
 
       {lightboxProduct ? (
         <div

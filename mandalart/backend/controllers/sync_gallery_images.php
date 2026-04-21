@@ -2,10 +2,11 @@
 
 require_once __DIR__ . '/../models/gallery_model.php';
 
-$publicImagesDir = realpath(__DIR__ . '/../../public/gallery_images');
-
-if (!$publicImagesDir || !is_dir($publicImagesDir)) {
-    send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
+$publicImagesDir = __DIR__ . '/../../public/gallery_images';
+if (!is_dir($publicImagesDir)) {
+    if (!mkdir($publicImagesDir, 0775, true) && !is_dir($publicImagesDir)) {
+        send_json('server_error', 500, ['message' => 'Failed to create public/gallery_images directory']);
+    }
 }
 
 $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];

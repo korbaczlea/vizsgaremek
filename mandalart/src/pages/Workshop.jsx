@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import API_BASE_URL from "../config/api";
 import PageHelmet from "../components/PageHelmet";
 
@@ -80,6 +81,7 @@ export default function Workshop({ loggedIn = false }) {
     email: "",
     phone: "",
   });
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const onChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -231,6 +233,7 @@ export default function Workshop({ loggedIn = false }) {
       return "Incorrect email address.";
     }
     if (!/^[0-9+\s()-]{6,}$/.test(form.phone)) return "Please enter a valid phone number.";
+    if (!privacyConsent) return "Please accept the Privacy Policy before submitting.";
     return "";
   };
 
@@ -290,6 +293,7 @@ export default function Workshop({ loggedIn = false }) {
       } else {
         setForm({ firstName: "", lastName: "", email: "", phone: "" });
       }
+      setPrivacyConsent(false);
       const calRes = await fetch(`${API_BASE_URL}/api/get_workshop_calendar`);
       const calText = await calRes.text();
       const calData = calText ? JSON.parse(calText) : {};
@@ -624,6 +628,18 @@ export default function Workshop({ loggedIn = false }) {
                 />
               </div>
             </div>
+
+            <label className="consent-row">
+              <input
+                type="checkbox"
+                checked={privacyConsent}
+                onChange={(e) => setPrivacyConsent(e.target.checked)}
+              />
+              <span>
+                I agree to the processing of my personal data according to the{" "}
+                <Link to="/Privacy">Privacy Policy</Link>.
+              </span>
+            </label>
 
             {error && <div className="app-alert app-alert--error">{error}</div>}
             {success && <div className="app-alert app-alert--success">{success}</div>}

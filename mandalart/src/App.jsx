@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Gallery from "./pages/Gallery";
 import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
 import Prices from "./pages/Prices";
 import Workshop from "./pages/Workshop";
 import Order from "./pages/Order";
@@ -16,8 +17,12 @@ import API_BASE_URL from "./config/api";
 
 import { CartProvider, useCart } from "./context/CartContext";
 import CartDrawer from "./components/CartDrawer";
+import CookieConsentBanner from "./components/CookieConsentBanner";
 import AccessibleModal from "./components/AccessibleModal";
 import { EyeIcon, EyeOffIcon } from "./components/AuthPasswordIcons";
+
+const SESSION_STARTED_AT_KEY = "mandalart_session_started_at";
+const MAX_SESSION_MS = 2 * 60 * 60 * 1000;
 
 function isStrongPassword(password) {
   if (typeof password !== "string") return false;
@@ -79,12 +84,30 @@ function NavMenu({ showAdmin = false, loggedIn = false }) {
         <Link to="/About">About</Link>
         <Link to="/Gallery">Gallery</Link>
         <Link to="/Contact">Contact</Link>
+        <Link to="/Privacy">Privacy</Link>
         <Link to="/Prices">Prices</Link>
         <Link to="/Workshop">Workshop booking</Link>
         <Link to="/Order">Order</Link>
         {showAdmin ? <Link to="/Admin">Admin</Link> : null}
       </div>
     </nav>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="app-footer">
+      <div className="app-footer__inner">
+        <span>© {new Date().getFullYear()} Mandalart</span>
+        <button
+          type="button"
+          className="app-footer__linkBtn"
+          onClick={() => window.dispatchEvent(new Event("mandalart:openCookieSettings"))}
+        >
+          Cookie settings
+        </button>
+      </div>
+    </footer>
   );
 }
 
@@ -572,6 +595,7 @@ export default function App() {
     setUser(null);
     setIsAdmin(false);
     localStorage.removeItem("mandalart_token");
+    localStorage.removeItem(SESSION_STARTED_AT_KEY);
     setTokenValue(null);
   };
 
@@ -587,6 +611,7 @@ export default function App() {
     setLoggedIn(true);
     setUser({ email, token });
     setTokenValue(token);
+    localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
     setLoginOpen(false);
   };
 
@@ -594,6 +619,7 @@ export default function App() {
     if (token) {
       localStorage.setItem("mandalart_token", token);
       setTokenValue(token);
+      localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
     }
     setLoggedIn(true);
     setUser({ name, email, token });
@@ -616,11 +642,25 @@ export default function App() {
     }
 
     const expiresAt = Number(payload.exp) * 1000;
-    const timeoutMs = expiresAt - Date.now();
-    if (timeoutMs <= 0) {
+    const jwtRemainingMs = expiresAt - Date.now();
+    if (jwtRemainingMs <= 0) {
       handleLogout();
       return;
     }
+
+    const now = Date.now();
+    const rawSessionStartedAt = Number(localStorage.getItem(SESSION_STARTED_AT_KEY) || 0);
+    const sessionStartedAt = rawSessionStartedAt > 0 ? rawSessionStartedAt : now;
+    if (rawSessionStartedAt <= 0) {
+      localStorage.setItem(SESSION_STARTED_AT_KEY, String(sessionStartedAt));
+    }
+    const sessionRemainingMs = MAX_SESSION_MS - (now - sessionStartedAt);
+    if (sessionRemainingMs <= 0) {
+      handleLogout();
+      return;
+    }
+
+    const timeoutMs = Math.min(jwtRemainingMs, sessionRemainingMs);
 
     const timer = window.setTimeout(() => {
       handleLogout();
@@ -736,6 +776,7 @@ export default function App() {
           <Route path="/About" element={<About />} />
           <Route path="/Gallery" element={<Gallery />} />
           <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
+          <Route path="/Privacy" element={<Privacy />} />
           <Route path="/Prices" element={<Prices />} />
           <Route path="/Workshop" element={<Workshop loggedIn={loggedIn} />} />
           <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
@@ -743,6 +784,8 @@ export default function App() {
           <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
+        <Footer />
+        <CookieConsentBanner />
       </div>
     </CartProvider>
   );
