@@ -743,7 +743,7 @@ export default function App() {
 
   return (
     <CartProvider>
-      <div>
+      <div className="app-shell">
         <Header />
         <NavMenu showAdmin={isAdmin} loggedIn={loggedIn} />
 
@@ -771,19 +771,21 @@ export default function App() {
           onSuccess={handleRegisterSuccess}
         />
 
-        <Routes>
-          <Route path="/" element={<Home loggedIn={loggedIn} />} />
-          <Route path="/About" element={<About />} />
-          <Route path="/Gallery" element={<Gallery />} />
-          <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
-          <Route path="/Privacy" element={<Privacy />} />
-          <Route path="/Prices" element={<Prices />} />
-          <Route path="/Workshop" element={<Workshop loggedIn={loggedIn} />} />
-          <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
-          <Route path="/Admin" element={<Admin />} />
-          <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-        </Routes>
+        <div className="app-main">
+          <Routes>
+            <Route path="/" element={<Home loggedIn={loggedIn} />} />
+            <Route path="/About" element={<About />} />
+            <Route path="/Gallery" element={<Gallery />} />
+            <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
+            <Route path="/Privacy" element={<Privacy />} />
+            <Route path="/Prices" element={<Prices />} />
+            <Route path="/Workshop" element={<Workshop loggedIn={loggedIn} />} />
+            <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
+            <Route path="/Admin" element={<Admin />} />
+            <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </div>
         <Footer />
         <CookieConsentBanner />
       </div>

@@ -23,6 +23,20 @@ body {
     background-size: 22px 22px;
 }
 
+#root {
+    min-height: 100vh;
+}
+
+.app-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-main {
+    flex: 1 0 auto;
+}
+
 
 .hero {
     text-align: center;
@@ -1866,6 +1880,18 @@ h1 {
 
     .cookie-banner__actions {
         justify-content: flex-end;
+    }
+}
+
+@media (max-width: 640px) {
+    .app-footer__inner {
+        padding: 10px 14px 14px;
+        font-size: 12px;
+        gap: 8px;
+    }
+
+    .app-footer__linkBtn {
+        font-size: 12px;
     }
 }
 
