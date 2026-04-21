@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/user_model.php';
 
-function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): bool
+function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): array
 {
     $pdo = get_db();
 
@@ -129,12 +129,18 @@ function create_order(array $customer, array $items, float $total, ?string $curr
         }
 
         $pdo->commit();
-        return true;
+        return [
+            'ok' => true,
+            'order_id' => $orderId,
+            'order_number' => $orderNumber,
+            'email' => $email,
+            'full_name' => $fullName,
+        ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return false;
+        return ['ok' => false];
     }
 }
 
