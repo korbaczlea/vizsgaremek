@@ -7,7 +7,7 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-const GALLERY_UPLOAD_CHUNK_SIZE = 18;
+const GALLERY_UPLOAD_CHUNK_SIZE = 50;
 const GALLERY_PUBLIC_PATH = "/public/gallery_images";
 
 async function fetchJson(url, options = {}) {
@@ -50,6 +50,7 @@ export default function Admin() {
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadError, setGalleryUploadError] = useState("");
   const [galleryUploadSuccess, setGalleryUploadSuccess] = useState("");
+  const [selectedGalleryIds, setSelectedGalleryIds] = useState([]);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -133,7 +134,11 @@ export default function Admin() {
         headers: { ...authHeaders() },
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
-      setGallery(data.images || []);
+      const images = data.images || [];
+      setGallery(images);
+      setSelectedGalleryIds((prev) =>
+        prev.filter((id) => images.some((img) => Number(img.id) === Number(id)))
+      );
     } catch {
       setGalleryError("Failed to load gallery images.");
     } finally {
@@ -524,6 +529,24 @@ export default function Admin() {
       await loadGallery();
     } catch {
       setGalleryError("Failed to delete gallery image.");
+    }
+  };
+
+  const deleteSelectedGalleryImages = async () => {
+    if (!selectedGalleryIds.length) return;
+    if (!confirm(`Remove ${selectedGalleryIds.length} selected image(s) from gallery list?`)) return;
+    setGalleryError("");
+    try {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_delete_gallery_image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ ids: selectedGalleryIds }),
+      });
+      if (!res.ok || data.status !== "success") throw new Error("Failed");
+      setSelectedGalleryIds([]);
+      await loadGallery();
+    } catch {
+      setGalleryError("Failed to delete selected gallery images.");
     }
   };
 
@@ -1236,8 +1259,48 @@ export default function Admin() {
           </div>
 
           <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                onClick={() => {
+                  if (selectedGalleryIds.length === sortedGallery.length) {
+                    setSelectedGalleryIds([]);
+                    return;
+                  }
+                  setSelectedGalleryIds(sortedGallery.map((img) => img.id));
+                }}
+                disabled={!sortedGallery.length}
+              >
+                {selectedGalleryIds.length === sortedGallery.length && sortedGallery.length
+                  ? "Unselect all"
+                  : "Select all"}
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--danger"
+                onClick={deleteSelectedGalleryImages}
+                disabled={!selectedGalleryIds.length}
+              >
+                Delete selected ({selectedGalleryIds.length})
+              </button>
+            </div>
             {sortedGallery.map((img) => (
               <div key={img.id} className="admin-galleryRow">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedGalleryIds.includes(img.id)}
+                    onChange={(e) =>
+                      setSelectedGalleryIds((prev) =>
+                        e.target.checked
+                          ? (prev.includes(img.id) ? prev : [...prev, img.id])
+                          : prev.filter((id) => id !== img.id)
+                      )
+                    }
+                    aria-label={`Select ${img.filename}`}
+                  />
+                </div>
                 <img src={`${GALLERY_PUBLIC_PATH}/${img.filename}`} alt={img.title || img.filename} />
                 <div style={{ display: "grid", gap: 8 }}>
                   <div className="admin-grid3">
