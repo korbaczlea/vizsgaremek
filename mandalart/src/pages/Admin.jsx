@@ -7,7 +7,36 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-const GALLERY_UPLOAD_CHUNK_SIZE = 18;
+/** Total size per gallery action (drag/drop or file picker), bytes. Matches PHP post_max_size. */
+const GALLERY_UPLOAD_BYTES_MAX = 500 * 1024 * 1024;
+/**
+ * Max body size per HTTP request (multipart is slightly larger than file sum).
+ * Cloudflare Free ~100 MB/request — staying under avoids 413 before traffic hits your VPS.
+ */
+const GALLERY_UPLOAD_CHUNK_BYTES_MAX = 90 * 1024 * 1024;
+
+function chunkGalleryFilesByRequestSize(files, maxChunkBytes) {
+  const list = Array.from(files || []);
+  const chunks = [];
+  let cur = [];
+  let sum = 0;
+  for (const f of list) {
+    if (f.size > maxChunkBytes) {
+      return {
+        error: `"${f.name}" is larger than ${Math.round(maxChunkBytes / (1024 * 1024))} MB per upload request. Compress it, or temporarily bypass strict proxies (e.g. turn off Cloudflare proxy for admin) to upload very large single files.`,
+      };
+    }
+    if (cur.length && sum + f.size > maxChunkBytes) {
+      chunks.push(cur);
+      cur = [];
+      sum = 0;
+    }
+    cur.push(f);
+    sum += f.size;
+  }
+  if (cur.length) chunks.push(cur);
+  return { chunks };
+}
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
@@ -610,14 +639,41 @@ export default function Admin() {
 
     setGalleryUploadError("");
     setGalleryUploadSuccess("");
+
+    for (const f of list) {
+      if (f.size > GALLERY_UPLOAD_BYTES_MAX) {
+        setGalleryUploadError(
+          `"${f.name}" is larger than 500 MB. Compress it or upload a smaller file.`
+        );
+        return;
+      }
+    }
+
+    const totalBytes = list.reduce((sum, f) => sum + f.size, 0);
+    if (totalBytes > GALLERY_UPLOAD_BYTES_MAX) {
+      setGalleryUploadError(
+        `Total size is ${(totalBytes / (1024 * 1024)).toFixed(1)} MB; maximum is 500 MB in one upload. Upload in multiple batches.`
+      );
+      return;
+    }
+
+    const { chunks, error: chunkErr } = chunkGalleryFilesByRequestSize(
+      list,
+      GALLERY_UPLOAD_CHUNK_BYTES_MAX
+    );
+    if (chunkErr) {
+      setGalleryUploadError(chunkErr);
+      return;
+    }
+
     setGalleryUploading(true);
 
     try {
       let totalUploaded = 0;
       let totalSkipped = 0;
 
-      for (let offset = 0; offset < list.length; offset += GALLERY_UPLOAD_CHUNK_SIZE) {
-        const chunk = list.slice(offset, offset + GALLERY_UPLOAD_CHUNK_SIZE);
+      for (let c = 0; c < chunks.length; c++) {
+        const chunk = chunks[c];
         const formData = new FormData();
         for (const f of chunk) {
           formData.append("files", f, f.name);
@@ -637,12 +693,28 @@ export default function Admin() {
           data = {};
         }
 
-        if (!res.ok || data.status !== "success") {
-          const msg = data?.message || "Failed to upload images.";
+        if (res.status === 413) {
           throw new Error(
-            list.length > GALLERY_UPLOAD_CHUNK_SIZE
-              ? `${msg} (stopped after ${totalUploaded} OK; try uploading the rest in another batch.)`
-              : msg
+            "Upload rejected: payload too large (413). Your host or CDN (e.g. Cloudflare ~100 MB per request) blocked this batch. Deploy the latest nginx config (512 MB body) or upload fewer / smaller files per attempt."
+          );
+        }
+
+        if (!res.ok || data.status !== "success") {
+          const msg =
+            (typeof data?.message === "string" && data.message.trim()) ||
+            "Failed to upload images.";
+          const skipped = Array.isArray(data?.skipped) ? data.skipped : [];
+          const hint =
+            skipped.length > 0
+              ? ` (${skipped
+                  .slice(0, 3)
+                  .map((s) => s.filename || "file")
+                  .join(", ")}${skipped.length > 3 ? "…" : ""})`
+              : "";
+          throw new Error(
+            chunks.length > 1
+              ? `${msg}${hint} (stopped after batch ${c + 1}; ${totalUploaded} file(s) had already been saved.)`
+              : `${msg}${hint}`
           );
         }
 
@@ -651,7 +723,7 @@ export default function Admin() {
       }
 
       setGalleryUploadSuccess(
-        `Upload successful: ${totalUploaded} file(s) added${totalSkipped ? `, ${totalSkipped} skipped` : ""}.`
+        `Upload successful: ${totalUploaded} file(s) added${totalSkipped ? `, ${totalSkipped} skipped` : ""}${chunks.length > 1 ? ` (${chunks.length} requests).` : "."}`
       );
 
       await loadGallery();
@@ -1318,7 +1390,9 @@ export default function Admin() {
           {galleryLoading ? <p className="admin-loading">Loading...</p> : null}
 
           <p className="admin-hint">
-            Drag & drop to upload images. The files are saved to <code>public/gallery_images</code> and added to the database automatically.
+            Drag & drop or choose multiple images (up to <b>500 MB total</b> per action; large sets are sent in
+            several ~90 MB requests so CDNs like Cloudflare do not return 413). Files go to{" "}
+            <code>public/gallery_images</code> and are registered in the database automatically.
           </p>
 
           <div

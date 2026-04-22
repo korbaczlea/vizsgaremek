@@ -23,6 +23,16 @@ if (!is_writable($publicImagesDir)) {
 
 $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];
 
+$uploadErrLabels = [
+    UPLOAD_ERR_INI_SIZE   => 'exceeds_upload_max_filesize',
+    UPLOAD_ERR_FORM_SIZE  => 'exceeds_form_max_size',
+    UPLOAD_ERR_PARTIAL    => 'partial_upload',
+    UPLOAD_ERR_NO_FILE    => 'no_file',
+    UPLOAD_ERR_NO_TMP_DIR => 'missing_tmp_dir',
+    UPLOAD_ERR_CANT_WRITE => 'disk_write_failed',
+    UPLOAD_ERR_EXTENSION  => 'blocked_by_extension',
+];
+
 if (is_array($filesField['name'] ?? null)) {
     $names = $filesField['name'];
     $tmpNames = $filesField['tmp_name'];
@@ -42,7 +52,12 @@ for ($i = 0; $i < count($names); $i++) {
     $err = (int) ($errors[$i] ?? UPLOAD_ERR_NO_FILE);
 
     if ($err !== UPLOAD_ERR_OK) {
-        $skipped[] = ['filename' => $origName, 'reason' => 'upload_error', 'error' => $err];
+        $skipped[] = [
+            'filename' => $origName,
+            'reason'   => 'upload_error',
+            'error'    => $err,
+            'detail'   => $uploadErrLabels[$err] ?? 'unknown_upload_error',
+        ];
         continue;
     }
 
@@ -81,10 +96,22 @@ for ($i = 0; $i < count($names); $i++) {
 $status = count($uploaded) ? 'success' : 'server_error';
 $code = count($uploaded) ? 200 : 500;
 
-send_json($status, $code, [
-    'uploaded' => $uploaded,
-    'skipped' => $skipped,
-    'uploaded_count' => count($uploaded),
-    'skipped_count' => count($skipped),
-]);
+$payload = [
+    'uploaded'        => $uploaded,
+    'skipped'         => $skipped,
+    'uploaded_count'  => count($uploaded),
+    'skipped_count'   => count($skipped),
+];
+
+if ($code !== 200) {
+    if ($skipped) {
+        $first = $skipped[0];
+        $detail = $first['detail'] ?? ($first['reason'] ?? 'unknown');
+        $payload['message'] = 'No files saved. First issue: ' . $detail . ' (' . ($first['filename'] ?? '') . ').';
+    } else {
+        $payload['message'] = 'No valid image files received.';
+    }
+}
+
+send_json($status, $code, $payload);
 

@@ -27,11 +27,15 @@ services:
       DB_NAME: mandalart
       JWT_SECRET: zH5vR9qX2mN8kT4yP1wL7bJ3sF0gC6eD
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
-      MANDALART_PUBLIC_ORIGIN: ${MANDALART_PUBLIC_ORIGIN:-http://mandalart.shop}
+      MANDALART_PUBLIC_ORIGIN: ${MANDALART_PUBLIC_ORIGIN:-https://mandalart.shop}
       MANDALART_MAIL_FROM: ${MANDALART_MAIL_FROM:-noreply@mandalart.shop}
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # Same path PHP uses (backend/controllers/../../public/gallery_images).
+      # Must match nginx html/gallery_images so uploaded files are served publicly.
+      - gallery_uploads:/var/www/html/public/gallery_images
 
   web:
     build:
@@ -41,6 +45,8 @@ services:
       - backend
     ports:
       - "8080:80"
+    volumes:
+      - gallery_uploads:/usr/share/nginx/html/gallery_images
 
   adminer:
       image: adminer
@@ -50,3 +56,4 @@ services:
 
 volumes:
   db_data:
+  gallery_uploads:
