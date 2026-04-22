@@ -6,16 +6,23 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Gallery from "./pages/Gallery";
 import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
 import Prices from "./pages/Prices";
 import Workshop from "./pages/Workshop";
 import Order from "./pages/Order";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
+import ResetPassword from "./pages/ResetPassword";
 import API_BASE_URL from "./config/api";
 
 import { CartProvider, useCart } from "./context/CartContext";
 import CartDrawer from "./components/CartDrawer";
+import CookieConsentBanner from "./components/CookieConsentBanner";
 import AccessibleModal from "./components/AccessibleModal";
+import { EyeIcon, EyeOffIcon } from "./components/AuthPasswordIcons";
+
+const SESSION_STARTED_AT_KEY = "mandalart_session_started_at";
+const MAX_SESSION_MS = 2 * 60 * 60 * 1000;
 
 function isStrongPassword(password) {
   if (typeof password !== "string") return false;
@@ -45,22 +52,6 @@ function parseJwtPayload(token) {
   } catch {
     return null;
   }
-}
-
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="icon-eye" aria-hidden="true">
-      <path d="M12 5c-5.5 0-9.6 3.6-11 7 1.4 3.4 5.5 7 11 7s9.6-3.6 11-7c-1.4-3.4-5.5-7-11-7Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="icon-eye" aria-hidden="true">
-      <path d="m3.3 2 18.7 18.7-1.4 1.4-4-4a12 12 0 0 1-4.6.9c-5.5 0-9.6-3.6-11-7 .7-1.7 2-3.6 3.8-5l-2.9-2.8L3.3 2Zm7.4 7.4a4 4 0 0 0 3.9 3.9l-3.9-3.9ZM12 5c5.5 0 9.6 3.6 11 7-.6 1.5-1.6 2.9-2.9 4.1l-1.4-1.4c.8-.8 1.5-1.7 2-2.7-1.2-2.4-4.3-5-8.7-5-1.4 0-2.8.3-4 .8L6.4 6.2A13 13 0 0 1 12 5Z" />
-    </svg>
-  );
 }
 
 function UserCircleIcon() {
@@ -93,12 +84,30 @@ function NavMenu({ showAdmin = false, loggedIn = false }) {
         <Link to="/About">About</Link>
         <Link to="/Gallery">Gallery</Link>
         <Link to="/Contact">Contact</Link>
+        <Link to="/Privacy">Privacy</Link>
         <Link to="/Prices">Prices</Link>
         <Link to="/Workshop">Workshop booking</Link>
         <Link to="/Order">Order</Link>
         {showAdmin ? <Link to="/Admin">Admin</Link> : null}
       </div>
     </nav>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="app-footer">
+      <div className="app-footer__inner">
+        <span>© {new Date().getFullYear()} Mandalart</span>
+        <button
+          type="button"
+          className="app-footer__linkBtn"
+          onClick={() => window.dispatchEvent(new Event("mandalart:openCookieSettings"))}
+        >
+          Cookie settings
+        </button>
+      </div>
+    </footer>
   );
 }
 
@@ -213,6 +222,18 @@ function LoginModal({ isOpen, onClose, onSuccess }) {
 
       if (data.status === "email_not_registered") {
         setError("There is no account with this email address.");
+        return;
+      }
+
+      if (data.status === "email_not_configured") {
+        setError(
+          "Password reset email is not configured on the server (SendGrid key or public site URL)."
+        );
+        return;
+      }
+
+      if (data.status === "email_send_failed") {
+        setError("The reset email could not be sent. Please try again later.");
         return;
       }
 
@@ -574,6 +595,7 @@ export default function App() {
     setUser(null);
     setIsAdmin(false);
     localStorage.removeItem("mandalart_token");
+    localStorage.removeItem(SESSION_STARTED_AT_KEY);
     setTokenValue(null);
   };
 
@@ -589,6 +611,7 @@ export default function App() {
     setLoggedIn(true);
     setUser({ email, token });
     setTokenValue(token);
+    localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
     setLoginOpen(false);
   };
 
@@ -596,6 +619,7 @@ export default function App() {
     if (token) {
       localStorage.setItem("mandalart_token", token);
       setTokenValue(token);
+      localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
     }
     setLoggedIn(true);
     setUser({ name, email, token });
@@ -618,11 +642,25 @@ export default function App() {
     }
 
     const expiresAt = Number(payload.exp) * 1000;
-    const timeoutMs = expiresAt - Date.now();
-    if (timeoutMs <= 0) {
+    const jwtRemainingMs = expiresAt - Date.now();
+    if (jwtRemainingMs <= 0) {
       handleLogout();
       return;
     }
+
+    const now = Date.now();
+    const rawSessionStartedAt = Number(localStorage.getItem(SESSION_STARTED_AT_KEY) || 0);
+    const sessionStartedAt = rawSessionStartedAt > 0 ? rawSessionStartedAt : now;
+    if (rawSessionStartedAt <= 0) {
+      localStorage.setItem(SESSION_STARTED_AT_KEY, String(sessionStartedAt));
+    }
+    const sessionRemainingMs = MAX_SESSION_MS - (now - sessionStartedAt);
+    if (sessionRemainingMs <= 0) {
+      handleLogout();
+      return;
+    }
+
+    const timeoutMs = Math.min(jwtRemainingMs, sessionRemainingMs);
 
     const timer = window.setTimeout(() => {
       handleLogout();
@@ -705,7 +743,7 @@ export default function App() {
 
   return (
     <CartProvider>
-      <div>
+      <div className="app-shell">
         <Header />
         <NavMenu showAdmin={isAdmin} loggedIn={loggedIn} />
 
@@ -733,17 +771,23 @@ export default function App() {
           onSuccess={handleRegisterSuccess}
         />
 
-        <Routes>
-          <Route path="/" element={<Home loggedIn={loggedIn} />} />
-          <Route path="/About" element={<About />} />
-          <Route path="/Gallery" element={<Gallery />} />
-          <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
-          <Route path="/Prices" element={<Prices />} />
-          <Route path="/Workshop" element={<Workshop />} />
-          <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
-          <Route path="/Admin" element={<Admin />} />
-          <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
-        </Routes>
+        <div className="app-main">
+          <Routes>
+            <Route path="/" element={<Home loggedIn={loggedIn} />} />
+            <Route path="/About" element={<About />} />
+            <Route path="/Gallery" element={<Gallery />} />
+            <Route path="/Contact" element={<Contact loggedIn={loggedIn} />} />
+            <Route path="/Privacy" element={<Privacy />} />
+            <Route path="/Prices" element={<Prices />} />
+            <Route path="/Workshop" element={<Workshop loggedIn={loggedIn} />} />
+            <Route path="/Order" element={<Order loggedIn={loggedIn} />} />
+            <Route path="/Admin" element={<Admin />} />
+            <Route path="/Profile" element={<Profile onLogout={handleLogout} />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </div>
+        <Footer />
+        <CookieConsentBanner />
       </div>
     </CartProvider>
   );

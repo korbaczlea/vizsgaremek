@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/workshop_session_model.php';
+require_once __DIR__ . '/sendgrid_mail.php';
 
 function process_workshop_booking(array $data): array
 {
@@ -58,6 +59,19 @@ function process_workshop_booking(array $data): array
         ]);
     } catch (Throwable $e) {
         return ['status' => 'server_error', 'code' => 500];
+    }
+
+    if (SENDGRID_API_KEY !== '' && strcasecmp($email, 'guest@example.com') !== 0) {
+        $sent = mandalart_send_workshop_booking_status_email(
+            $email,
+            $guestName,
+            (string) ($session['workshop_title'] ?? ''),
+            (string) ($session['start_datetime'] ?? ''),
+            'pending'
+        );
+        if (!$sent['ok']) {
+            error_log('mandalart workshop booking email: ' . json_encode($sent, JSON_UNESCAPED_UNICODE));
+        }
     }
 
     return ['status' => 'success', 'code' => 200];

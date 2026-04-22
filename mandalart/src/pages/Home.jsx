@@ -167,9 +167,6 @@ export default function Home({ loggedIn = false }) {
               <Link className="home-btn home-btn--primary" to="/Order">
                 Shop now
               </Link>
-              <Link className="home-btn home-btn--ghost" to="/Contact">
-                Custom order
-              </Link>
             </div>
 
             <div className="home-trust">

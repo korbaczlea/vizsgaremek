@@ -1,7 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCart } from "../context/CartContext";
 import API_BASE_URL from "../config/api";
 import PageHelmet from "../components/PageHelmet";
+
+function productImageSrc(product) {
+  if (!product) return "";
+  let fallbackImage = null;
+  if (product.id === 1 || product.name?.includes("12")) {
+    fallbackImage = "/images/little_mandala.png";
+  } else if (product.id === 2 || product.name?.includes("22")) {
+    fallbackImage = "/images/medium_mandala.png";
+  } else if (product.id === 3 || product.name?.toLowerCase().includes("clock")) {
+    fallbackImage = "/images/clock_mandala.png";
+  }
+  return product.image || fallbackImage || "";
+}
 
 export default function Order({ loggedIn = false }) {
   const { addToCart } = useCart();
@@ -11,6 +24,10 @@ export default function Order({ loggedIn = false }) {
   const [error, setError] = useState("");
   const [lightboxProduct, setLightboxProduct] = useState(null);
   const [zoomImageSrc, setZoomImageSrc] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -66,9 +83,50 @@ export default function Order({ loggedIn = false }) {
   }, []);
 
   const handleAddToCart = (product) => {
-    if (Number(product?.stock_quantity ?? 0) <= 0) return;
-    addToCart(product);
+    addToCart({ ...product, image: productImageSrc(product) || product.image });
   };
+
+  const categories = useMemo(() => {
+    const set = new Set();
+    for (const product of products) {
+      const category = String(product.category || "").trim();
+      if (category) set.add(category);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const min = minPrice === "" ? null : Number(minPrice);
+    const max = maxPrice === "" ? null : Number(maxPrice);
+
+    return products.filter((product) => {
+      const productName = String(product.name || "").toLowerCase();
+      const productDescription = String(product.description || "").toLowerCase();
+      const category = String(product.category || "").trim();
+      const price = Number(product.price || 0);
+
+      const searchPass =
+        normalizedSearch === "" ||
+        productName.includes(normalizedSearch) ||
+        productDescription.includes(normalizedSearch) ||
+        category.toLowerCase().includes(normalizedSearch);
+
+      const categoryPass =
+        selectedCategory === "all" || category === selectedCategory;
+
+      const minPass = min === null || (!Number.isNaN(min) && price >= min);
+      const maxPass = max === null || (!Number.isNaN(max) && price <= max);
+
+      return searchPass && categoryPass && minPass && maxPass;
+    });
+  }, [products, searchQuery, selectedCategory, minPrice, maxPrice]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
+    selectedCategory !== "all" ||
+    minPrice !== "" ||
+    maxPrice !== "";
 
   useEffect(() => {
     if (!lightboxProduct) return;
@@ -111,40 +169,71 @@ export default function Order({ loggedIn = false }) {
 
       {error && <p className="order-error">{error}</p>}
 
+      <section className="order-filters" aria-label="Product filters">
+        <input
+          type="search"
+          placeholder="Search products..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          aria-label="Filter by category"
+        >
+          <option value="all">All categories</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          placeholder="Min price"
+          value={minPrice}
+          onChange={(e) => setMinPrice(e.target.value)}
+        />
+        <input
+          type="number"
+          min="0"
+          step="1"
+          placeholder="Max price"
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(e.target.value)}
+        />
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            className="order-filters__clearBtn"
+            onClick={() => {
+              setSearchQuery("");
+              setSelectedCategory("all");
+              setMinPrice("");
+              setMaxPrice("");
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </section>
+
       {loading ? (
         <p>Loading products...</p>
       ) : (
         <div className="order-grid">
-          {products.map((product) => {
-            let fallbackImage = null;
-            if (product.id === 1 || product.name?.includes("12")) {
-              fallbackImage = "/images/little_mandala.png";
-            } else if (product.id === 2 || product.name?.includes("22")) {
-              fallbackImage = "/images/medium_mandala.png";
-            } else if (product.id === 3 || product.name?.toLowerCase().includes("clock")) {
-              fallbackImage = "/images/clock_mandala.png";
-            }
-            const imageSrc = product.image || fallbackImage;
-            const stockQty = Math.max(0, Number(product.stock_quantity ?? 0));
-            const outOfStock = stockQty <= 0;
-
-            const handleCardClick = () => {
+          {filteredProducts.map((product) => {
+            const imageSrc = productImageSrc(product);
+            const openProductCard = () => {
               setLightboxProduct({
-                id: product.id,
                 src: imageSrc,
                 description: product.description,
                 price: product.price,
                 currency: product.currency,
                 name: product.name,
-                stock_quantity: stockQty,
               });
-            };
-
-            const handleCardKeyDown = (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleCardClick();
-              }
             };
 
             return (
@@ -154,8 +243,13 @@ export default function Order({ loggedIn = false }) {
                 role="button"
                 tabIndex={0}
                 aria-label={`Open product card: ${product.name}`}
-                onClick={handleCardClick}
-                onKeyDown={handleCardKeyDown}
+                onClick={openProductCard}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openProductCard();
+                  }
+                }}
               >
                 <div className="order-card__image">
                   {imageSrc ? (
@@ -167,13 +261,6 @@ export default function Order({ loggedIn = false }) {
 
                 <div className="order-card__content">
                   <h3>{product.name}</h3>
-                  <div
-                    className={
-                      outOfStock ? "order-stockBadge order-stockBadge--out" : "order-stockBadge"
-                    }
-                  >
-                    {outOfStock ? "Out of stock" : `In stock: ${stockQty}`}
-                  </div>
                   <p className="order-card__description">{product.description}</p>
 
                   <div className="order-card__footer">
@@ -193,9 +280,9 @@ export default function Order({ loggedIn = false }) {
                         e.stopPropagation();
                         if (loggedIn) handleAddToCart(product);
                       }}
-                      disabled={!loggedIn || outOfStock}
+                      disabled={!loggedIn}
                     >
-                      {loggedIn ? (outOfStock ? "Out of stock" : "Add to cart") : "Sign in required"}
+                      {loggedIn ? "Add to cart" : "Sign in required"}
                     </button>
                   </div>
                 </div>
@@ -204,6 +291,9 @@ export default function Order({ loggedIn = false }) {
           })}
         </div>
       )}
+      {!loading && !error && filteredProducts.length === 0 ? (
+        <p className="order-subtitle">No products match the selected filters.</p>
+      ) : null}
 
       {lightboxProduct ? (
         <div
@@ -247,17 +337,6 @@ export default function Order({ loggedIn = false }) {
 
               <div className="order-card__content">
                 <h3>{lightboxProduct.name}</h3>
-                  <div
-                    className={
-                      Number(lightboxProduct.stock_quantity ?? 0) <= 0
-                        ? "order-stockBadge order-stockBadge--out"
-                        : "order-stockBadge"
-                    }
-                  >
-                    {Number(lightboxProduct.stock_quantity ?? 0) <= 0
-                      ? "Out of stock"
-                      : `In stock: ${Number(lightboxProduct.stock_quantity ?? 0)}`}
-                  </div>
                 <p className="order-card__description">{lightboxProduct.description}</p>
                 <div className="order-card__footer">
                   {loggedIn ? (
@@ -271,25 +350,19 @@ export default function Order({ loggedIn = false }) {
 
                   <button
                     className="order-btn"
-                    disabled={!loggedIn || Number(lightboxProduct.stock_quantity ?? 0) <= 0}
+                    disabled={!loggedIn}
                     onClick={() => {
-                      if (!loggedIn || Number(lightboxProduct.stock_quantity ?? 0) <= 0) return;
+                      if (!loggedIn) return;
                       handleAddToCart({
-                        id: lightboxProduct.id,
                         name: lightboxProduct.name,
                         description: lightboxProduct.description,
                         image: lightboxProduct.src,
                         price: lightboxProduct.price,
                         currency: lightboxProduct.currency,
-                        stock_quantity: lightboxProduct.stock_quantity,
                       });
                     }}
                   >
-                    {loggedIn
-                      ? Number(lightboxProduct.stock_quantity ?? 0) <= 0
-                        ? "Out of stock"
-                        : "Add to cart"
-                      : "Sign in required"}
+                    {loggedIn ? "Add to cart" : "Sign in required"}
                   </button>
                 </div>
               </div>

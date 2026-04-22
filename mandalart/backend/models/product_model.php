@@ -18,7 +18,6 @@ function get_all_products(): array
                 p.description,
                 p.price,
                 p.category,
-                p.stock_quantity,
                 (SELECT pi.image_path
                  FROM product_images pi
                  WHERE pi.product_id = p.id

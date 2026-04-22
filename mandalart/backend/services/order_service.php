@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/order_model.php';
+require_once __DIR__ . '/sendgrid_mail.php';
 
 function process_order(array $payload, ?string $currentUserEmail = null): array
 {
@@ -29,16 +30,23 @@ function process_order(array $payload, ?string $currentUserEmail = null): array
         return ['status' => 'server_error', 'code' => 500];
     }
 
-    if (!is_array($created) || empty($created['ok'])) {
-        $reason = (string) ($created['reason'] ?? '');
-        if ($reason === 'out_of_stock' || $reason === 'product_unavailable') {
-            return [
-                'status' => 'out_of_stock',
-                'code' => 409,
-                'details' => $created['details'] ?? [],
-            ];
-        }
+    if (empty($created['ok'])) {
         return ['status' => 'server_error', 'code' => 500];
+    }
+
+    if (SENDGRID_API_KEY !== '') {
+        $to = trim((string) ($created['email'] ?? ''));
+        if ($to !== '' && strcasecmp($to, 'guest@example.com') !== 0) {
+            $sent = mandalart_send_order_status_update_email(
+                $to,
+                (string) ($created['full_name'] ?? ''),
+                (string) ($created['order_number'] ?? ''),
+                'pending'
+            );
+            if (!$sent['ok']) {
+                error_log('mandalart order pending email: ' . json_encode($sent, JSON_UNESCAPED_UNICODE));
+            }
+        }
     }
 
     return ['status' => 'success', 'code' => 200];

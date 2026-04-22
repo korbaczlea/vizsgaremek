@@ -18,64 +18,6 @@ function create_order(array $customer, array $items, float $total, ?string $curr
             }
         }
 
-        // Aggregate requested quantities by product id for robust stock checks.
-        $requestedQtyByProductId = [];
-        foreach ($items as $item) {
-            $productId = (int) ($item['id'] ?? 0);
-            $qty = (int) ($item['qty'] ?? 1);
-            if ($productId <= 0 || $qty <= 0) {
-                continue;
-            }
-            if (!isset($requestedQtyByProductId[$productId])) {
-                $requestedQtyByProductId[$productId] = 0;
-            }
-            $requestedQtyByProductId[$productId] += $qty;
-        }
-
-        if (count($requestedQtyByProductId) === 0) {
-            $pdo->rollBack();
-            return ['ok' => false, 'reason' => 'malformed_request'];
-        }
-
-        $productMeta = [];
-        $stmtProductForUpdate = $pdo->prepare(
-            'SELECT id, name, stock_quantity, is_active
-             FROM products
-             WHERE id = :id
-             LIMIT 1
-             FOR UPDATE'
-        );
-        foreach ($requestedQtyByProductId as $productId => $requestedQty) {
-            $stmtProductForUpdate->execute([':id' => $productId]);
-            $row = $stmtProductForUpdate->fetch();
-            if (!$row || (int) ($row['is_active'] ?? 0) !== 1) {
-                $pdo->rollBack();
-                return [
-                    'ok' => false,
-                    'reason' => 'product_unavailable',
-                    'details' => [['product_id' => $productId, 'requested' => $requestedQty, 'available' => 0]],
-                ];
-            }
-            $available = (int) ($row['stock_quantity'] ?? 0);
-            if ($available < $requestedQty) {
-                $pdo->rollBack();
-                return [
-                    'ok' => false,
-                    'reason' => 'out_of_stock',
-                    'details' => [[
-                        'product_id' => $productId,
-                        'product_name' => (string) ($row['name'] ?? 'Product'),
-                        'requested' => $requestedQty,
-                        'available' => max(0, $available),
-                    ]],
-                ];
-            }
-            $productMeta[$productId] = [
-                'name' => (string) ($row['name'] ?? 'Product'),
-                'available' => $available,
-            ];
-        }
-
         $stmtCart = $pdo->prepare(
             'INSERT INTO carts (user_id, total_price, status, created_at)
              VALUES (:user_id, :total_price, :status, NOW())'
@@ -170,7 +112,7 @@ function create_order(array $customer, array $items, float $total, ?string $curr
             $productId = (int) ($item['id'] ?? 0);
             $qty = (int) ($item['qty'] ?? 1);
             $price = (float) ($item['price'] ?? 0);
-            $name = (string) ($item['name'] ?? ($productMeta[$productId]['name'] ?? 'Product'));
+            $name = (string) ($item['name'] ?? 'Product');
 
             if ($qty <= 0 || $price < 0) {
                 continue;
@@ -186,19 +128,6 @@ function create_order(array $customer, array $items, float $total, ?string $curr
             ]);
         }
 
-        $stmtDecreaseStock = $pdo->prepare(
-            'UPDATE products
-             SET stock_quantity = stock_quantity - :qty,
-                 updated_at = NOW()
-             WHERE id = :id'
-        );
-        foreach ($requestedQtyByProductId as $productId => $requestedQty) {
-            $stmtDecreaseStock->execute([
-                ':id' => $productId,
-                ':qty' => $requestedQty,
-            ]);
-        }
-
         $pdo->commit();
         return [
             'ok' => true,
@@ -211,7 +140,7 @@ function create_order(array $customer, array $items, float $total, ?string $curr
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return ['ok' => false, 'reason' => 'server_error'];
+        return ['ok' => false];
     }
 }
 
@@ -245,6 +174,25 @@ function admin_list_orders(): array
         );
         return $stmt->fetchAll() ?: [];
     }
+}
+
+function get_order_for_notification(int $orderId): ?array
+{
+    if ($orderId <= 0) {
+        return null;
+    }
+
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT id, order_number, email, full_name, order_status
+         FROM orders
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $orderId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
 }
 
 function admin_update_order_status(int $orderId, string $status): bool
