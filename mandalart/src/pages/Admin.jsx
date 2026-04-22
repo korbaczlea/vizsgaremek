@@ -676,7 +676,7 @@ export default function Admin() {
         const chunk = chunks[c];
         const formData = new FormData();
         for (const f of chunk) {
-          formData.append("files", f, f.name);
+          formData.append("files[]", f, f.name);
         }
 
         const res = await fetch(`${API_BASE_URL}/api/admin_upload_gallery_images`, {
