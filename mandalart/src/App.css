@@ -506,12 +506,13 @@ h1 {
     background: var(--cardSolid);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 12px;
+    padding: 0;
+    overflow: hidden;
 }
 
 .home-slider {
     position: relative;
-    border-radius: 14px;
+    border-radius: inherit;
     overflow: hidden;
     aspect-ratio: 4 / 3;
 }
@@ -1016,7 +1017,7 @@ h1 {
     background: var(--cardSolid);
     border-radius: 16px;
     border: 1px solid var(--border);
-    padding: 12px;
+    padding: 0;
     display: grid;
     place-items: center;
     aspect-ratio: 4 / 3;
@@ -1027,7 +1028,7 @@ h1 {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: var(--radiusSm);
+    border-radius: inherit;
     display: block;
 }
 
