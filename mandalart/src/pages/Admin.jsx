@@ -8,6 +8,7 @@ function authHeaders() {
 }
 
 const GALLERY_UPLOAD_CHUNK_SIZE = 18;
+const GALLERY_PUBLIC_PATH = "/public/gallery_images";
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
@@ -685,7 +686,7 @@ export default function Admin() {
                 <option value="">Select image from gallery...</option>
                 {sortedGallery.map((img) => {
                   const label = img.title ? `${img.title} (${img.filename})` : img.filename;
-                  const value = `/gallery_images/${img.filename}`;
+                  const value = `${GALLERY_PUBLIC_PATH}/${img.filename}`;
                   return (
                     <option key={img.id} value={value}>
                       {label}
@@ -776,7 +777,7 @@ export default function Admin() {
                     <option value="">No image</option>
                     {sortedGallery.map((img) => {
                       const label = img.title ? `${img.title} (${img.filename})` : img.filename;
-                      const value = `/gallery_images/${img.filename}`;
+                      const value = `${GALLERY_PUBLIC_PATH}/${img.filename}`;
                       return (
                         <option key={img.id} value={value}>
                           {label}
@@ -1237,7 +1238,7 @@ export default function Admin() {
           <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
             {sortedGallery.map((img) => (
               <div key={img.id} className="admin-galleryRow">
-                <img src={`/gallery_images/${img.filename}`} alt={img.title || img.filename} />
+                <img src={`${GALLERY_PUBLIC_PATH}/${img.filename}`} alt={img.title || img.filename} />
                 <div style={{ display: "grid", gap: 8 }}>
                   <div className="admin-grid3">
                     <input

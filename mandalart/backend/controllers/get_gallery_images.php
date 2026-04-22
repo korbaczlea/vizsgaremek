@@ -9,7 +9,7 @@ $images = array_map(
         return [
             'id'    => (int) $r['id'],
             'title' => $r['title'] ?? null,
-            'src'   => '/gallery_images/' . $r['filename'],
+            'src'   => '/public/gallery_images/' . $r['filename'],
         ];
     },
     $rows
