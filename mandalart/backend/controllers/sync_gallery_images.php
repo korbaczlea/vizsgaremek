@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../models/gallery_model.php';
 
-$publicImagesDir = realpath(__DIR__ . '/../../public/gallery_images');
+$publicImagesDir = realpath(__DIR__ . '/../public/gallery_images');
 
 if (!$publicImagesDir || !is_dir($publicImagesDir)) {
     send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);

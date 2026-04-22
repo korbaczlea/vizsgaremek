@@ -11,8 +11,15 @@ if (!$filesField) {
     send_json('malformed_request', 400, ['message' => 'Missing files field']);
 }
 
-$publicImagesDir = realpath(__DIR__ . '/../../public/gallery_images');
-if (!$publicImagesDir || !is_dir($publicImagesDir)) {
+$publicImagesDir = __DIR__ . '/../public/gallery_images';
+if (!is_dir($publicImagesDir)) {
+    if (!mkdir($publicImagesDir, 0775, true) && !is_dir($publicImagesDir)) {
+        send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
+    }
+}
+
+$realPublicImagesDir = realpath($publicImagesDir);
+if (!$realPublicImagesDir || !is_dir($realPublicImagesDir)) {
     send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
 }
 
@@ -58,10 +65,10 @@ for ($i = 0; $i < count($names); $i++) {
     if (!$nameNoExt) $nameNoExt = 'image';
 
     $targetName = $nameNoExt . '.' . $ext;
-    $destPath = $publicImagesDir . DIRECTORY_SEPARATOR . $targetName;
+    $destPath = $realPublicImagesDir . DIRECTORY_SEPARATOR . $targetName;
     if (file_exists($destPath)) {
         $targetName = $nameNoExt . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $destPath = $publicImagesDir . DIRECTORY_SEPARATOR . $targetName;
+        $destPath = $realPublicImagesDir . DIRECTORY_SEPARATOR . $targetName;
     }
 
     if (!move_uploaded_file($tmpPath, $destPath)) {
