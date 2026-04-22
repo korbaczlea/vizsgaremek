@@ -25,13 +25,17 @@ services:
       DB_USER: root
       DB_PASS: root
       DB_NAME: mandalart
-      JWT_SECRET: zH5vR9qX2mN8kT4yP1wL7bJ3sF0gC6eD
-      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
-      MANDALART_PUBLIC_ORIGIN: ${MANDALART_PUBLIC_ORIGIN:-http://mandalart.shop}
-      MANDALART_MAIL_FROM: ${MANDALART_MAIL_FROM:-noreply@mandalart.shop}
+      JWT_SECRET: csereld_le_egy_min_32_karakteres_random_stringre
     depends_on:
       db:
         condition: service_healthy
+    command: >
+      sh -lc "mkdir -p /var/www/html/backend/public/gallery_images
+      && chown -R www-data:www-data /var/www/html/backend/public/gallery_images
+      && chmod -R 775 /var/www/html/backend/public/gallery_images
+      && apache2-foreground"
+    volumes:
+      - gallery_images_data:/var/www/html/backend/public/gallery_images
 
   web:
     build:
@@ -50,3 +54,4 @@ services:
 
 volumes:
   db_data:
+  gallery_images_data:
