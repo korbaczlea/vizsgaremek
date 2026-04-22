@@ -39,5 +39,12 @@ if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $m)) {
 
 $result = process_order($data, $currentUserEmail);
 
-send_json($result['status'], $result['code']);
+$status = (string) ($result['status'] ?? 'server_error');
+$code = (int) ($result['code'] ?? 500);
+$extra = [];
+if (isset($result['details']) && is_array($result['details'])) {
+    $extra['details'] = $result['details'];
+}
+
+send_json($status, $code, $extra);
 

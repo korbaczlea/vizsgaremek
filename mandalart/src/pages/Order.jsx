@@ -66,6 +66,7 @@ export default function Order({ loggedIn = false }) {
   }, []);
 
   const handleAddToCart = (product) => {
+    if (Number(product?.stock_quantity ?? 0) <= 0) return;
     addToCart(product);
   };
 
@@ -124,14 +125,18 @@ export default function Order({ loggedIn = false }) {
               fallbackImage = "/images/clock_mandala.png";
             }
             const imageSrc = product.image || fallbackImage;
+            const stockQty = Math.max(0, Number(product.stock_quantity ?? 0));
+            const outOfStock = stockQty <= 0;
 
             const handleCardClick = () => {
               setLightboxProduct({
+                id: product.id,
                 src: imageSrc,
                 description: product.description,
                 price: product.price,
                 currency: product.currency,
                 name: product.name,
+                stock_quantity: stockQty,
               });
             };
 
@@ -162,6 +167,13 @@ export default function Order({ loggedIn = false }) {
 
                 <div className="order-card__content">
                   <h3>{product.name}</h3>
+                  <div
+                    className={
+                      outOfStock ? "order-stockBadge order-stockBadge--out" : "order-stockBadge"
+                    }
+                  >
+                    {outOfStock ? "Out of stock" : `In stock: ${stockQty}`}
+                  </div>
                   <p className="order-card__description">{product.description}</p>
 
                   <div className="order-card__footer">
@@ -181,9 +193,9 @@ export default function Order({ loggedIn = false }) {
                         e.stopPropagation();
                         if (loggedIn) handleAddToCart(product);
                       }}
-                      disabled={!loggedIn}
+                      disabled={!loggedIn || outOfStock}
                     >
-                      {loggedIn ? "Add to cart" : "Sign in required"}
+                      {loggedIn ? (outOfStock ? "Out of stock" : "Add to cart") : "Sign in required"}
                     </button>
                   </div>
                 </div>
@@ -235,6 +247,17 @@ export default function Order({ loggedIn = false }) {
 
               <div className="order-card__content">
                 <h3>{lightboxProduct.name}</h3>
+                  <div
+                    className={
+                      Number(lightboxProduct.stock_quantity ?? 0) <= 0
+                        ? "order-stockBadge order-stockBadge--out"
+                        : "order-stockBadge"
+                    }
+                  >
+                    {Number(lightboxProduct.stock_quantity ?? 0) <= 0
+                      ? "Out of stock"
+                      : `In stock: ${Number(lightboxProduct.stock_quantity ?? 0)}`}
+                  </div>
                 <p className="order-card__description">{lightboxProduct.description}</p>
                 <div className="order-card__footer">
                   {loggedIn ? (
@@ -248,19 +271,25 @@ export default function Order({ loggedIn = false }) {
 
                   <button
                     className="order-btn"
-                    disabled={!loggedIn}
+                    disabled={!loggedIn || Number(lightboxProduct.stock_quantity ?? 0) <= 0}
                     onClick={() => {
-                      if (!loggedIn) return;
+                      if (!loggedIn || Number(lightboxProduct.stock_quantity ?? 0) <= 0) return;
                       handleAddToCart({
+                        id: lightboxProduct.id,
                         name: lightboxProduct.name,
                         description: lightboxProduct.description,
                         image: lightboxProduct.src,
                         price: lightboxProduct.price,
                         currency: lightboxProduct.currency,
+                        stock_quantity: lightboxProduct.stock_quantity,
                       });
                     }}
                   >
-                    {loggedIn ? "Add to cart" : "Sign in required"}
+                    {loggedIn
+                      ? Number(lightboxProduct.stock_quantity ?? 0) <= 0
+                        ? "Out of stock"
+                        : "Add to cart"
+                      : "Sign in required"}
                   </button>
                 </div>
               </div>

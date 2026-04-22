@@ -24,12 +24,20 @@ function process_order(array $payload, ?string $currentUserEmail = null): array
     }
 
     try {
-        $ok = create_order($customer, $items, (float) $total, $currentUserEmail);
+        $created = create_order($customer, $items, (float) $total, $currentUserEmail);
     } catch (Throwable $e) {
         return ['status' => 'server_error', 'code' => 500];
     }
 
-    if (!$ok) {
+    if (!is_array($created) || empty($created['ok'])) {
+        $reason = (string) ($created['reason'] ?? '');
+        if ($reason === 'out_of_stock' || $reason === 'product_unavailable') {
+            return [
+                'status' => 'out_of_stock',
+                'code' => 409,
+                'details' => $created['details'] ?? [],
+            ];
+        }
         return ['status' => 'server_error', 'code' => 500];
     }
 

@@ -80,6 +80,17 @@ export default function CartDrawer({ open, onClose }) {
       }
 
       if (!res.ok || data.status !== "success") {
+        if (data.status === "out_of_stock") {
+          const first = Array.isArray(data.details) && data.details.length ? data.details[0] : null;
+          if (first) {
+            const name = first.product_name || "A product";
+            const available = Number(first.available ?? 0);
+            setError(`${name} is out of stock. Available quantity: ${available}.`);
+          } else {
+            setError("One or more products are out of stock. Please update your cart.");
+          }
+          return;
+        }
         setError("Failed to save your order. Please try again.");
         return;
       }
