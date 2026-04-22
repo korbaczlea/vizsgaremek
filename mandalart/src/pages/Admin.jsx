@@ -7,8 +7,7 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-const GALLERY_UPLOAD_CHUNK_SIZE = 50;
-const GALLERY_PUBLIC_PATH = "/public/gallery_images";
+const GALLERY_UPLOAD_CHUNK_SIZE = 18;
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
@@ -32,6 +31,8 @@ export default function Admin() {
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [productPickerQuery, setProductPickerQuery] = useState("");
   const [newProduct, setNewProduct] = useState({
     name: "",
     slug: "",
@@ -50,7 +51,6 @@ export default function Admin() {
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadError, setGalleryUploadError] = useState("");
   const [galleryUploadSuccess, setGalleryUploadSuccess] = useState("");
-  const [selectedGalleryIds, setSelectedGalleryIds] = useState([]);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -118,7 +118,15 @@ export default function Admin() {
         headers: { ...authHeaders() },
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
-      setProducts(data.products || []);
+      const loadedProducts = data.products || [];
+      setProducts(loadedProducts);
+      setSelectedProductId((prev) => {
+        if (!loadedProducts.length) return "";
+        if (prev && loadedProducts.some((p) => String(p.id) === String(prev))) {
+          return String(prev);
+        }
+        return String(loadedProducts[0].id);
+      });
     } catch {
       setProductsError("Failed to load products.");
     } finally {
@@ -134,11 +142,7 @@ export default function Admin() {
         headers: { ...authHeaders() },
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
-      const images = data.images || [];
-      setGallery(images);
-      setSelectedGalleryIds((prev) =>
-        prev.filter((id) => images.some((img) => Number(img.id) === Number(id)))
-      );
+      setGallery(data.images || []);
     } catch {
       setGalleryError("Failed to load gallery images.");
     } finally {
@@ -495,6 +499,22 @@ export default function Admin() {
     }
   };
 
+  const selectedProduct = useMemo(() => {
+    if (!products.length) return null;
+    if (!selectedProductId) return products[0];
+    return products.find((p) => String(p.id) === String(selectedProductId)) || products[0];
+  }, [products, selectedProductId]);
+
+  const productPickerOptions = useMemo(() => {
+    const q = productPickerQuery.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => {
+      const idText = String(p.id);
+      const nameText = String(p.name || "").toLowerCase();
+      return idText.includes(q) || nameText.includes(q);
+    });
+  }, [products, productPickerQuery]);
+
   const sortedGallery = useMemo(() => {
     const g = [...gallery];
     g.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
@@ -532,24 +552,6 @@ export default function Admin() {
     }
   };
 
-  const deleteSelectedGalleryImages = async () => {
-    if (!selectedGalleryIds.length) return;
-    if (!confirm(`Remove ${selectedGalleryIds.length} selected image(s) from gallery list?`)) return;
-    setGalleryError("");
-    try {
-      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_delete_gallery_image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ ids: selectedGalleryIds }),
-      });
-      if (!res.ok || data.status !== "success") throw new Error("Failed");
-      setSelectedGalleryIds([]);
-      await loadGallery();
-    } catch {
-      setGalleryError("Failed to delete selected gallery images.");
-    }
-  };
-
   const uploadGalleryFiles = async (files) => {
     const list = Array.from(files || []);
     if (!list.length) return;
@@ -566,7 +568,7 @@ export default function Admin() {
         const chunk = list.slice(offset, offset + GALLERY_UPLOAD_CHUNK_SIZE);
         const formData = new FormData();
         for (const f of chunk) {
-          formData.append("files[]", f, f.name);
+          formData.append("files", f, f.name);
         }
 
         const res = await fetch(`${API_BASE_URL}/api/admin_upload_gallery_images`, {
@@ -709,7 +711,7 @@ export default function Admin() {
                 <option value="">Select image from gallery...</option>
                 {sortedGallery.map((img) => {
                   const label = img.title ? `${img.title} (${img.filename})` : img.filename;
-                  const value = `${GALLERY_PUBLIC_PATH}/${img.filename}`;
+                  const value = `/gallery_images/${img.filename}`;
                   return (
                     <option key={img.id} value={value}>
                       {label}
@@ -738,85 +740,153 @@ export default function Admin() {
           <hr className="admin-divider" />
 
           <h4>Edit existing</h4>
-          <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
-            {products.map((p) => (
-              <div key={p.id} className="admin-productCard">
-                <div className="admin-productCard__head">
-                  <b>#{p.id}</b>
-                  <button type="button" className="admin-btn admin-btn--danger" onClick={() => deleteProduct(p.id)}>
-                    Delete
-                  </button>
-                </div>
-
-                <div className="admin-grid2" style={{ marginTop: 10 }}>
-                  <input
-                    defaultValue={p.name}
-                    onBlur={(e) => updateProductField(p.id, { name: e.target.value })}
-                  />
-                  <input
-                    defaultValue={p.slug}
-                    onBlur={(e) => updateProductField(p.id, { slug: e.target.value })}
-                  />
-                </div>
-
-                <textarea
-                  defaultValue={p.description || ""}
-                  rows={3}
-                  style={{ width: "100%", marginTop: 10, boxSizing: "border-box" }}
-                  onBlur={(e) => updateProductField(p.id, { description: e.target.value })}
+          {products.length ? (
+            <>
+              <div className="admin-form" style={{ maxWidth: 420, marginBottom: 12 }}>
+                <label className="admin-fieldLabel" htmlFor="admin-product-search">
+                  Quick search (name or ID)
+                </label>
+                <input
+                  id="admin-product-search"
+                  type="search"
+                  placeholder="Type product name or ID..."
+                  value={productPickerQuery}
+                  onChange={(e) => setProductPickerQuery(e.target.value)}
                 />
-
-                <div className="admin-grid3" style={{ marginTop: 10 }}>
-                  <input
-                    type="number"
-                    step="0.01"
-                    defaultValue={p.price}
-                    onBlur={(e) => updateProductField(p.id, { price: Number(e.target.value) })}
-                  />
-                  <input
-                    type="number"
-                    defaultValue={p.stock_quantity}
-                    onBlur={(e) => updateProductField(p.id, { stock_quantity: Number(e.target.value) })}
-                  />
-                  <select
-                    defaultValue={p.is_active ? 1 : 0}
-                    onChange={(e) => updateProductField(p.id, { is_active: Number(e.target.value) })}
-                  >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
-                  </select>
-                </div>
-
-                <div className="admin-grid2" style={{ marginTop: 10 }}>
-                  <input
-                    defaultValue={p.category || ""}
-                    onBlur={(e) => updateProductField(p.id, { category: e.target.value })}
-                  />
-                  <select
-                    defaultValue={p.image_url || ""}
-                    disabled={galleryLoading && sortedGallery.length === 0}
-                    onChange={(e) => updateProductField(p.id, { image_url: e.target.value })}
-                  >
-                    <option value="">No image</option>
-                    {sortedGallery.map((img) => {
-                      const label = img.title ? `${img.title} (${img.filename})` : img.filename;
-                      const value = `${GALLERY_PUBLIC_PATH}/${img.filename}`;
-                      return (
-                        <option key={img.id} value={value}>
-                          {label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                {p.image_url ? (
-                  <div className="admin-productImagePreview">
-                    <img src={p.image_url} alt="Selected product preview" />
-                  </div>
-                ) : null}
+                <label className="admin-fieldLabel" htmlFor="admin-product-select">
+                  Select product
+                </label>
+                <select
+                  id="admin-product-select"
+                  value={
+                    productPickerOptions.some((p) => String(p.id) === String(selectedProduct?.id))
+                      ? String(selectedProduct?.id || "")
+                      : ""
+                  }
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                >
+                  {!productPickerOptions.length ? (
+                    <option value="" disabled>
+                      No matching products
+                    </option>
+                  ) : null}
+                  {productPickerOptions.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      #{p.id} - {p.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))}
-          </div>
+
+              {selectedProduct ? (
+                <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
+                  <div key={selectedProduct.id} className="admin-productCard">
+                    <div className="admin-productCard__head">
+                      <b>#{selectedProduct.id}</b>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--danger"
+                        onClick={() => deleteProduct(selectedProduct.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="admin-grid2" style={{ marginTop: 10 }}>
+                      <input
+                        defaultValue={selectedProduct.name}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, { name: e.target.value })
+                        }
+                      />
+                      <input
+                        defaultValue={selectedProduct.slug}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, { slug: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <textarea
+                      defaultValue={selectedProduct.description || ""}
+                      rows={3}
+                      style={{ width: "100%", marginTop: 10, boxSizing: "border-box" }}
+                      onBlur={(e) =>
+                        updateProductField(selectedProduct.id, { description: e.target.value })
+                      }
+                    />
+
+                    <div className="admin-grid3" style={{ marginTop: 10 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        defaultValue={selectedProduct.price}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, {
+                            price: Number(e.target.value),
+                          })
+                        }
+                      />
+                      <input
+                        type="number"
+                        defaultValue={selectedProduct.stock_quantity}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, {
+                            stock_quantity: Number(e.target.value),
+                          })
+                        }
+                      />
+                      <select
+                        defaultValue={selectedProduct.is_active ? 1 : 0}
+                        onChange={(e) =>
+                          updateProductField(selectedProduct.id, {
+                            is_active: Number(e.target.value),
+                          })
+                        }
+                      >
+                        <option value={1}>Active</option>
+                        <option value={0}>Inactive</option>
+                      </select>
+                    </div>
+
+                    <div className="admin-grid2" style={{ marginTop: 10 }}>
+                      <input
+                        defaultValue={selectedProduct.category || ""}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, { category: e.target.value })
+                        }
+                      />
+                      <select
+                        defaultValue={selectedProduct.image_url || ""}
+                        disabled={galleryLoading && sortedGallery.length === 0}
+                        onChange={(e) =>
+                          updateProductField(selectedProduct.id, { image_url: e.target.value })
+                        }
+                      >
+                        <option value="">No image</option>
+                        {sortedGallery.map((img) => {
+                          const label = img.title ? `${img.title} (${img.filename})` : img.filename;
+                          const value = `/gallery_images/${img.filename}`;
+                          return (
+                            <option key={img.id} value={value}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    {selectedProduct.image_url ? (
+                      <div className="admin-productImagePreview">
+                        <img src={selectedProduct.image_url} alt="Selected product preview" />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="admin-muted">No products available yet.</p>
+          )}
         </section>
       ) : null}
 
@@ -1259,49 +1329,9 @@ export default function Admin() {
           </div>
 
           <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-              <button
-                type="button"
-                className="admin-btn admin-btn--ghost"
-                onClick={() => {
-                  if (selectedGalleryIds.length === sortedGallery.length) {
-                    setSelectedGalleryIds([]);
-                    return;
-                  }
-                  setSelectedGalleryIds(sortedGallery.map((img) => img.id));
-                }}
-                disabled={!sortedGallery.length}
-              >
-                {selectedGalleryIds.length === sortedGallery.length && sortedGallery.length
-                  ? "Unselect all"
-                  : "Select all"}
-              </button>
-              <button
-                type="button"
-                className="admin-btn admin-btn--danger"
-                onClick={deleteSelectedGalleryImages}
-                disabled={!selectedGalleryIds.length}
-              >
-                Delete selected ({selectedGalleryIds.length})
-              </button>
-            </div>
             {sortedGallery.map((img) => (
               <div key={img.id} className="admin-galleryRow">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedGalleryIds.includes(img.id)}
-                    onChange={(e) =>
-                      setSelectedGalleryIds((prev) =>
-                        e.target.checked
-                          ? (prev.includes(img.id) ? prev : [...prev, img.id])
-                          : prev.filter((id) => id !== img.id)
-                      )
-                    }
-                    aria-label={`Select ${img.filename}`}
-                  />
-                </div>
-                <img src={`${GALLERY_PUBLIC_PATH}/${img.filename}`} alt={img.title || img.filename} />
+                <img src={`/gallery_images/${img.filename}`} alt={img.title || img.filename} />
                 <div style={{ display: "grid", gap: 8 }}>
                   <div className="admin-grid3">
                     <input
