@@ -2448,6 +2448,18 @@ h1 {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
+.admin-galleryRowThumb {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.admin-galleryRowThumb input[type="checkbox"] {
+    width: auto;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
 .admin-galleryRow img {
     width: 120px;
     height: 80px;

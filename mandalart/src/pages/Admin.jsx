@@ -51,6 +51,8 @@ export default function Admin() {
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadError, setGalleryUploadError] = useState("");
   const [galleryUploadSuccess, setGalleryUploadSuccess] = useState("");
+  const [gallerySelectedIds, setGallerySelectedIds] = useState(() => new Set());
+  const [galleryBulkDeleting, setGalleryBulkDeleting] = useState(false);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -521,6 +523,23 @@ export default function Admin() {
     return g;
   }, [gallery]);
 
+  useEffect(() => {
+    if (tab !== "gallery") {
+      setGallerySelectedIds(new Set());
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    const valid = new Set(gallery.map((img) => img.id));
+    setGallerySelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      if (next.size === prev.size && [...next].every((id) => prev.has(id))) {
+        return prev;
+      }
+      return next;
+    });
+  }, [gallery]);
+
   const updateGallery = async (id, patch) => {
     setGalleryError("");
     try {
@@ -546,9 +565,42 @@ export default function Admin() {
         body: JSON.stringify({ id }),
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
+      setGallerySelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       await loadGallery();
     } catch {
       setGalleryError("Failed to delete gallery image.");
+    }
+  };
+
+  const deleteGalleryImagesBulk = async () => {
+    const ids = [...gallerySelectedIds];
+    if (!ids.length) return;
+    if (
+      !confirm(
+        `Remove ${ids.length} image(s) from the gallery list? (Files stay on disk)`
+      )
+    ) {
+      return;
+    }
+    setGalleryError("");
+    setGalleryBulkDeleting(true);
+    try {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_delete_gallery_images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok || data.status !== "success") throw new Error("Failed");
+      setGallerySelectedIds(new Set());
+      await loadGallery();
+    } catch {
+      setGalleryError("Failed to delete gallery images.");
+    } finally {
+      setGalleryBulkDeleting(false);
     }
   };
 
@@ -1328,10 +1380,78 @@ export default function Admin() {
             </div>
           </div>
 
+          {sortedGallery.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontWeight: 800,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    sortedGallery.length > 0 &&
+                    sortedGallery.every((img) => gallerySelectedIds.has(img.id))
+                  }
+                  onChange={() => {
+                    const allSelected =
+                      sortedGallery.length > 0 &&
+                      sortedGallery.every((img) => gallerySelectedIds.has(img.id));
+                    if (allSelected) {
+                      setGallerySelectedIds(new Set());
+                    } else {
+                      setGallerySelectedIds(new Set(sortedGallery.map((i) => i.id)));
+                    }
+                  }}
+                />
+                Select all
+              </label>
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                disabled={gallerySelectedIds.size === 0 || galleryBulkDeleting}
+                onClick={deleteGalleryImagesBulk}
+              >
+                {galleryBulkDeleting
+                  ? "Removing…"
+                  : `Remove selected (${gallerySelectedIds.size})`}
+              </button>
+            </div>
+          ) : null}
+
           <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
             {sortedGallery.map((img) => (
               <div key={img.id} className="admin-galleryRow">
-                <img src={`/gallery_images/${img.filename}`} alt={img.title || img.filename} />
+                <div className="admin-galleryRowThumb">
+                  <input
+                    type="checkbox"
+                    checked={gallerySelectedIds.has(img.id)}
+                    onChange={() => {
+                      setGallerySelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(img.id)) next.delete(img.id);
+                        else next.add(img.id);
+                        return next;
+                      });
+                    }}
+                    aria-label={`Select ${img.filename} for bulk remove`}
+                  />
+                  <img src={`/gallery_images/${img.filename}`} alt={img.title || img.filename} />
+                </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   <div className="admin-grid3">
                     <input

@@ -120,3 +120,24 @@ function gallery_delete_image(int $id): bool
     return $stmt->execute([':id' => $id]);
 }
 
+function gallery_delete_images(array $ids): bool
+{
+    $clean = [];
+    foreach ($ids as $x) {
+        $n = (int) $x;
+        if ($n > 0) {
+            $clean[$n] = true;
+        }
+    }
+    $clean = array_keys($clean);
+    if (count($clean) === 0) {
+        return true;
+    }
+
+    $pdo = get_db();
+    $placeholders = implode(',', array_fill(0, count($clean), '?'));
+    $stmt = $pdo->prepare("DELETE FROM gallery_images WHERE id IN ($placeholders)");
+
+    return $stmt->execute($clean);
+}
+
