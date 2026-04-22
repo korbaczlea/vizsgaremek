@@ -13,5 +13,11 @@ RUN printf '%s\n' \
 COPY apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 RUN a2enmod rewrite
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 WORKDIR /var/www/html
 COPY . /var/www/html/backend
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["apache2-foreground"]
