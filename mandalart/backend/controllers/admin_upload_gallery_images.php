@@ -22,6 +22,9 @@ $realPublicImagesDir = realpath($publicImagesDir);
 if (!$realPublicImagesDir || !is_dir($realPublicImagesDir)) {
     send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
 }
+if (!is_writable($realPublicImagesDir)) {
+    send_json('server_error', 500, ['message' => 'public/gallery_images is not writable']);
+}
 
 $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];
 
@@ -71,8 +74,8 @@ for ($i = 0; $i < count($names); $i++) {
         $destPath = $realPublicImagesDir . DIRECTORY_SEPARATOR . $targetName;
     }
 
-    if (!move_uploaded_file($tmpPath, $destPath)) {
-        $skipped[] = ['filename' => $origName, 'reason' => 'move_failed'];
+    if (!@move_uploaded_file($tmpPath, $destPath)) {
+        $skipped[] = ['filename' => $origName, 'reason' => 'move_failed', 'target' => $targetName];
         continue;
     }
 

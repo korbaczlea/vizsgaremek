@@ -29,6 +29,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    command: >
+      sh -lc "mkdir -p /var/www/html/backend/public/gallery_images
+      && chown -R www-data:www-data /var/www/html/backend/public/gallery_images
+      && chmod -R 775 /var/www/html/backend/public/gallery_images
+      && apache2-foreground"
     volumes:
       - gallery_images_data:/var/www/html/backend/public/gallery_images
 
