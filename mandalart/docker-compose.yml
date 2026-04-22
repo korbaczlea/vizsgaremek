@@ -29,6 +29,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - gallery_images_data:/var/www/html/backend/public/gallery_images
 
   web:
     build:
@@ -47,3 +49,4 @@ services:
 
 volumes:
   db_data:
+  gallery_images_data:
