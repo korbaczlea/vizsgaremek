@@ -301,7 +301,7 @@ export default function Admin() {
   const updateWorkshopSession = async (sessionId, bookingDate, startTime, endTime, availableSpots) => {
     setWorkshopBookingsError("");
     try {
-      const { data } = await fetchJson(`${API_BASE_URL}/api/admin_update_workshop_session`, {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_update_workshop_session`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
@@ -312,10 +312,15 @@ export default function Admin() {
           available_spots: availableSpots,
         }),
       });
-      if (data.status !== "success") throw new Error("Failed");
+      if (!res.ok || data.status !== "success") {
+        const msg =
+          (typeof data?.message === "string" && data.message.trim()) ||
+          "Failed to update workshop session.";
+        throw new Error(msg);
+      }
       await loadWorkshopBookings();
-    } catch {
-      setWorkshopBookingsError("Failed to update workshop session.");
+    } catch (e) {
+      setWorkshopBookingsError(e instanceof Error ? e.message : "Failed to update workshop session.");
     }
   };
 
@@ -944,6 +949,7 @@ export default function Admin() {
                       <input
                         type="number"
                         step="0.01"
+                        placeholder="Price"
                         defaultValue={selectedProduct.price}
                         onBlur={(e) =>
                           updateProductField(selectedProduct.id, {
@@ -953,6 +959,9 @@ export default function Admin() {
                       />
                       <input
                         type="number"
+                        min="0"
+                        placeholder="Stock (inventory)"
+                        title="Shown on Home featured products and Order page"
                         defaultValue={selectedProduct.stock_quantity}
                         onBlur={(e) =>
                           updateProductField(selectedProduct.id, {
@@ -1258,7 +1267,14 @@ export default function Admin() {
                         {s.booking_date} {s.start_time} - {s.end_time}
                       </div>
                       <div className="admin-muted" style={{ fontSize: 13 }}>
-                        Available spots: <b>{s.available_spots}</b>
+                        Capacity (max spots): <b>{s.available_spots}</b>
+                        {" · "}
+                        Booked: <b>{s.booked_count ?? 0}</b>
+                        {" · "}
+                        Remaining: <b>{s.remaining_spots ?? "—"}</b>
+                      </div>
+                      <div className="admin-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                        Set capacity in the field below; it cannot be lower than active bookings.
                       </div>
                     </div>
                     <button type="button" className="admin-btn admin-btn--danger" onClick={() => deleteWorkshopSession(s.id)}>
@@ -1272,7 +1288,7 @@ export default function Admin() {
                       <input type="date" defaultValue={s.booking_date} id={`ws_date_${s.id}`} />
                     </div>
                     <div className="admin-fieldStack">
-                      <label className="admin-fieldLabel">Available spots</label>
+                      <label className="admin-fieldLabel">Capacity / stock (max spots)</label>
                       <input
                         type="number"
                         min="1"

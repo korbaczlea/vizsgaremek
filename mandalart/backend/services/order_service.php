@@ -31,6 +31,13 @@ function process_order(array $payload, ?string $currentUserEmail = null): array
     }
 
     if (empty($created['ok'])) {
+        if (($created['reason'] ?? '') === 'insufficient_stock') {
+            return [
+                'status' => 'insufficient_stock',
+                'code'   => 409,
+                'product_id' => (int) ($created['product_id'] ?? 0),
+            ];
+        }
         return ['status' => 'server_error', 'code' => 500];
     }
 

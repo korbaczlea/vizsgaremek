@@ -405,13 +405,14 @@ export default function Workshop({ loggedIn = false }) {
       />
       <section className="workshop-card">
         <div className="workshop-media">
-          <img src="/images/workshop.png" alt="MandalArt workshop" />
+          <img src="/images/workshop.png" alt="MandalArt workshop" className="workshop-media__img" />
         </div>
 
         <div className="workshop-content">
           <h2>Workshop booking</h2>
           <p className="workshop-sub">
-            Book a workshop session for <b>Saturdays</b> only. Calendar shows free and full slots.
+            Book a workshop session for <b>Saturdays</b> only. Calendar shows free and full slots; each
+            time slot lists <b>remaining / total</b> capacity (set in Admin → Workshop bookings).
             Changes or cancellations are allowed at least <b>{deadlineHours} hours</b> before the
             session starts (manage in your Profile).
           </p>
@@ -579,7 +580,9 @@ export default function Workshop({ loggedIn = false }) {
                   {sessionsForSelectedDate.map((s) => (
                     <option key={s.id} value={String(s.id)}>
                       {s.start_time} – {s.end_time}
-                      {s.is_full ? " (full)" : ` (${s.remaining} left)`}
+                      {s.is_full
+                        ? " (full)"
+                        : ` (${s.remaining}/${s.capacity} spots left)`}
                     </option>
                   ))}
                 </select>

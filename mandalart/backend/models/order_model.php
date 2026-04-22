@@ -10,6 +10,33 @@ function create_order(array $customer, array $items, float $total, ?string $curr
     try {
         $pdo->beginTransaction();
 
+        $byProduct = [];
+        foreach ($items as $item) {
+            $pid = (int) ($item['id'] ?? 0);
+            $qty = (int) ($item['qty'] ?? 1);
+            if ($pid <= 0 || $qty <= 0) {
+                continue;
+            }
+            if (!isset($byProduct[$pid])) {
+                $byProduct[$pid] = 0;
+            }
+            $byProduct[$pid] += $qty;
+        }
+        ksort($byProduct);
+        foreach ($byProduct as $pid => $need) {
+            $stmtLock = $pdo->prepare('SELECT stock_quantity FROM products WHERE id = :id FOR UPDATE');
+            $stmtLock->execute([':id' => $pid]);
+            $stock = $stmtLock->fetchColumn();
+            if ($stock === false) {
+                $pdo->rollBack();
+                return ['ok' => false, 'reason' => 'insufficient_stock', 'product_id' => $pid];
+            }
+            if ((int) $stock < $need) {
+                $pdo->rollBack();
+                return ['ok' => false, 'reason' => 'insufficient_stock', 'product_id' => $pid];
+            }
+        }
+
         $guestUserId = 1;
         if ($currentUserEmail) {
             $currentUser = get_user_by_email($currentUserEmail);
@@ -126,6 +153,17 @@ function create_order(array $customer, array $items, float $total, ?string $curr
                 ':unit_price' => $price,
                 ':line_total' => $qty * $price,
             ]);
+        }
+
+        foreach ($byProduct as $pid => $need) {
+            $stmtDec = $pdo->prepare(
+                'UPDATE products SET stock_quantity = stock_quantity - :q WHERE id = :id AND stock_quantity >= :q2'
+            );
+            $stmtDec->execute([':q' => $need, ':id' => $pid, ':q2' => $need]);
+            if ($stmtDec->rowCount() !== 1) {
+                $pdo->rollBack();
+                return ['ok' => false, 'reason' => 'insufficient_stock', 'product_id' => $pid];
+            }
         }
 
         $pdo->commit();

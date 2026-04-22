@@ -47,10 +47,12 @@ export default function Home({ loggedIn = false }) {
           const rawPrice = Number(p?.price ?? 0);
           const currency = p?.currency || "HUF";
           return {
+            id: p?.id,
             name: name || "Product",
             price: `${rawPrice.toLocaleString()} ${currency}`,
             image: p?.image || fallbackImage,
             desc: p?.description || "Handmade mandala available on the Order page.",
+            stock_quantity: typeof p?.stock_quantity === "number" ? p.stock_quantity : Number(p?.stock_quantity ?? 0),
           };
         });
 
@@ -194,13 +196,20 @@ export default function Home({ loggedIn = false }) {
 
         <div className="home-featured">
           {featuredItems.map((p, i) => (
-            <div key={p.name || i} className="home-productCard">
+            <div key={p.id != null ? `p-${p.id}` : p.name || i} className="home-productCard">
               <div className="home-productCard__img">
                 <img src={p.image} alt={p.name || ""} loading="lazy" />
               </div>
 
               <div className="home-productCard__body">
                 <div className="home-productCard__name">{p.name}</div>
+                {typeof p.stock_quantity === "number" ? (
+                  <div
+                    className={`home-productCard__stock${p.stock_quantity > 0 ? "" : " home-productCard__stock--out"}`}
+                  >
+                    {p.stock_quantity > 0 ? `In stock: ${p.stock_quantity}` : "Out of stock"}
+                  </div>
+                ) : null}
                 <div className="home-productCard__desc">{p.desc}</div>
                 <div className="home-productCard__row">
                   <div className="home-productCard__price">

@@ -226,6 +226,9 @@ export default function Order({ loggedIn = false }) {
         <div className="order-grid">
           {filteredProducts.map((product) => {
             const imageSrc = productImageSrc(product);
+            const stock =
+              product.stock_quantity != null ? Number(product.stock_quantity) : null;
+            const outOfStock = typeof stock === "number" && stock <= 0;
             const openProductCard = () => {
               setLightboxProduct({
                 src: imageSrc,
@@ -261,6 +264,13 @@ export default function Order({ loggedIn = false }) {
 
                 <div className="order-card__content">
                   <h3>{product.name}</h3>
+                  {typeof stock === "number" ? (
+                    <p
+                      className={`order-card__stock${outOfStock ? " order-card__stock--out" : ""}`}
+                    >
+                      {outOfStock ? "Out of stock" : `In stock: ${stock}`}
+                    </p>
+                  ) : null}
                   <p className="order-card__description">{product.description}</p>
 
                   <div className="order-card__footer">
@@ -278,11 +288,15 @@ export default function Order({ loggedIn = false }) {
                       className="order-btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (loggedIn) handleAddToCart(product);
+                        if (loggedIn && !outOfStock) handleAddToCart(product);
                       }}
-                      disabled={!loggedIn}
+                      disabled={!loggedIn || outOfStock}
                     >
-                      {loggedIn ? "Add to cart" : "Sign in required"}
+                      {!loggedIn
+                        ? "Sign in required"
+                        : outOfStock
+                          ? "Out of stock"
+                          : "Add to cart"}
                     </button>
                   </div>
                 </div>

@@ -150,6 +150,9 @@ function admin_list_workshop_sessions_with_bookings(): array
         );
         $stmt->execute([':sid' => $sid, ':cancelled' => 'cancelled']);
         $bookings = $stmt->fetchAll() ?: [];
+        $bookedCount = count_session_bookings($sid);
+        $cap = (int) $s['available_spots'];
+        $remaining = max(0, $cap - $bookedCount);
 
         $result[] = [
             'id' => $sid,
@@ -160,7 +163,9 @@ function admin_list_workshop_sessions_with_bookings(): array
             'booking_date' => substr((string) $s['start_datetime'], 0, 10),
             'start_time' => substr((string) $s['start_datetime'], 11, 5),
             'end_time' => substr((string) $s['end_datetime'], 11, 5),
-            'available_spots' => (int) $s['available_spots'],
+            'available_spots' => $cap,
+            'booked_count' => $bookedCount,
+            'remaining_spots' => $remaining,
             'bookings' => $bookings,
         ];
     }

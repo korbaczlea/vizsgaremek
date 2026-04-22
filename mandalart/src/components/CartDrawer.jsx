@@ -83,6 +83,13 @@ export default function CartDrawer({ open, onClose }) {
       }
 
       if (!res.ok || data.status !== "success") {
+        if (data.status === "insufficient_stock") {
+          setError(
+            (typeof data.message === "string" && data.message.trim()) ||
+              "Not enough stock for an item in your cart. Update quantities and try again."
+          );
+          return;
+        }
         setError("Failed to save your order. Please try again.");
         return;
       }
