@@ -690,4 +690,3 @@ ALTER TABLE `workshop_sessions`
 ALTER TABLE `workshop_waitlist`
   ADD CONSTRAINT `fk_waitlist_session` FOREIGN KEY (`session_id`) REFERENCES `workshop_sessions` (`id`) ON DELETE CASCADE;
 COMMIT;
-
