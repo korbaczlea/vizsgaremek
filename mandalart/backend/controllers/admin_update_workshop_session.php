@@ -42,5 +42,12 @@ $ok = admin_update_workshop_session($id, [
     'available_spots' => $availableSpots,
 ]);
 
-send_json($ok ? 'success' : 'server_error', $ok ? 200 : 500);
+if ($ok) {
+    send_json('success', 200);
+}
+
+send_json('server_error', 500, [
+    'message' =>
+        'Could not update session. Check that capacity is at least 1 and not lower than the number of active (non-cancelled) bookings.',
+]);
 

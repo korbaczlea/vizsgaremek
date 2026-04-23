@@ -11,22 +11,27 @@ if (!$filesField) {
     send_json('malformed_request', 400, ['message' => 'Missing files field']);
 }
 
-$publicImagesDir = __DIR__ . '/../public/gallery_images';
+$publicImagesDir = __DIR__ . '/../../public/gallery_images';
 if (!is_dir($publicImagesDir)) {
     if (!mkdir($publicImagesDir, 0775, true) && !is_dir($publicImagesDir)) {
-        send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
+        send_json('server_error', 500, ['message' => 'Failed to create public/gallery_images directory']);
     }
 }
-
-$realPublicImagesDir = realpath($publicImagesDir);
-if (!$realPublicImagesDir || !is_dir($realPublicImagesDir)) {
-    send_json('server_error', 500, ['message' => 'public/gallery_images directory not found']);
-}
-if (!is_writable($realPublicImagesDir)) {
-    send_json('server_error', 500, ['message' => 'public/gallery_images is not writable']);
+if (!is_writable($publicImagesDir)) {
+    send_json('server_error', 500, ['message' => 'public/gallery_images directory is not writable']);
 }
 
 $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];
+
+$uploadErrLabels = [
+    UPLOAD_ERR_INI_SIZE   => 'exceeds_upload_max_filesize',
+    UPLOAD_ERR_FORM_SIZE  => 'exceeds_form_max_size',
+    UPLOAD_ERR_PARTIAL    => 'partial_upload',
+    UPLOAD_ERR_NO_FILE    => 'no_file',
+    UPLOAD_ERR_NO_TMP_DIR => 'missing_tmp_dir',
+    UPLOAD_ERR_CANT_WRITE => 'disk_write_failed',
+    UPLOAD_ERR_EXTENSION  => 'blocked_by_extension',
+];
 
 if (is_array($filesField['name'] ?? null)) {
     $names = $filesField['name'];
@@ -47,7 +52,12 @@ for ($i = 0; $i < count($names); $i++) {
     $err = (int) ($errors[$i] ?? UPLOAD_ERR_NO_FILE);
 
     if ($err !== UPLOAD_ERR_OK) {
-        $skipped[] = ['filename' => $origName, 'reason' => 'upload_error', 'error' => $err];
+        $skipped[] = [
+            'filename' => $origName,
+            'reason'   => 'upload_error',
+            'error'    => $err,
+            'detail'   => $uploadErrLabels[$err] ?? 'unknown_upload_error',
+        ];
         continue;
     }
 
@@ -68,14 +78,14 @@ for ($i = 0; $i < count($names); $i++) {
     if (!$nameNoExt) $nameNoExt = 'image';
 
     $targetName = $nameNoExt . '.' . $ext;
-    $destPath = $realPublicImagesDir . DIRECTORY_SEPARATOR . $targetName;
+    $destPath = $publicImagesDir . DIRECTORY_SEPARATOR . $targetName;
     if (file_exists($destPath)) {
         $targetName = $nameNoExt . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $destPath = $realPublicImagesDir . DIRECTORY_SEPARATOR . $targetName;
+        $destPath = $publicImagesDir . DIRECTORY_SEPARATOR . $targetName;
     }
 
-    if (!@move_uploaded_file($tmpPath, $destPath)) {
-        $skipped[] = ['filename' => $origName, 'reason' => 'move_failed', 'target' => $targetName];
+    if (!move_uploaded_file($tmpPath, $destPath)) {
+        $skipped[] = ['filename' => $origName, 'reason' => 'move_failed'];
         continue;
     }
 
@@ -86,10 +96,22 @@ for ($i = 0; $i < count($names); $i++) {
 $status = count($uploaded) ? 'success' : 'server_error';
 $code = count($uploaded) ? 200 : 500;
 
-send_json($status, $code, [
-    'uploaded' => $uploaded,
-    'skipped' => $skipped,
-    'uploaded_count' => count($uploaded),
-    'skipped_count' => count($skipped),
-]);
+$payload = [
+    'uploaded'        => $uploaded,
+    'skipped'         => $skipped,
+    'uploaded_count'  => count($uploaded),
+    'skipped_count'   => count($skipped),
+];
+
+if ($code !== 200) {
+    if ($skipped) {
+        $first = $skipped[0];
+        $detail = $first['detail'] ?? ($first['reason'] ?? 'unknown');
+        $payload['message'] = 'No files saved. First issue: ' . $detail . ' (' . ($first['filename'] ?? '') . ').';
+    } else {
+        $payload['message'] = 'No valid image files received.';
+    }
+}
+
+send_json($status, $code, $payload);
 

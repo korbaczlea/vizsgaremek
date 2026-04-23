@@ -1,6 +1,25 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import API_BASE_URL from "../config/api";
 import PageHelmet from "../components/PageHelmet";
+
+function normalizeEmail(s) {
+  return String(s || "").trim().toLowerCase();
+}
+
+function emailFromStoredJwt() {
+  const t = localStorage.getItem("mandalart_token");
+  if (!t || !t.includes(".")) return "";
+  try {
+    const payloadPart = t.split(".")[1];
+    const padded = payloadPart + "=".repeat((4 - (payloadPart.length % 4)) % 4);
+    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(json);
+    return normalizeEmail(payload.email);
+  } catch {
+    return "";
+  }
+}
 
 function toISODate(d) {
   const y = d.getFullYear();
@@ -39,13 +58,15 @@ function addMonths(d, delta) {
   return x;
 }
 
-export default function Workshop() {
+export default function Workshop({ loggedIn = false }) {
   const [calendarSessions, setCalendarSessions] = useState([]);
   const [deadlineHours, setDeadlineHours] = useState(48);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [waitlistSuccess, setWaitlistSuccess] = useState("");
+  /** Account email (JWT first, then profile_me) — form email must match when logged in. */
+  const [expectedEmail, setExpectedEmail] = useState("");
 
   const [viewMode, setViewMode] = useState("month"); // "month" | "week"
   const [monthAnchor, setMonthAnchor] = useState(() => new Date());
@@ -60,10 +81,52 @@ export default function Workshop() {
     email: "",
     phone: "",
   });
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const onChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
+
+  const loadProfileIntoForm = useCallback(async () => {
+    const token = localStorage.getItem("mandalart_token");
+    if (!loggedIn || !token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/profile_me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        return;
+      }
+      if (!res.ok || data.status !== "success" || !data.user) return;
+      const u = data.user;
+      const name = String(u.name || "").trim();
+      const bits = name.split(/\s+/).filter(Boolean);
+      const firstName = bits[0] || "";
+      const lastName = bits.slice(1).join(" ") || "";
+      setForm({
+        firstName,
+        lastName,
+        email: u.email || "",
+        phone: u.phone || "",
+      });
+      setExpectedEmail(normalizeEmail(u.email));
+    } catch {
+      /* ignore */
+    }
+  }, [loggedIn]);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setExpectedEmail("");
+      return;
+    }
+    setExpectedEmail(emailFromStoredJwt());
+    void loadProfileIntoForm();
+  }, [loggedIn, loadProfileIntoForm]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +229,11 @@ export default function Workshop() {
     if (!form.email.trim()) return "Email is required.";
     if (!form.phone.trim()) return "Phone number is required.";
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return "Please enter a valid email address.";
+    if (loggedIn && expectedEmail && normalizeEmail(form.email) !== expectedEmail) {
+      return "Incorrect email address.";
+    }
     if (!/^[0-9+\s()-]{6,}$/.test(form.phone)) return "Please enter a valid phone number.";
+    if (!privacyConsent) return "Please accept the Privacy Policy before submitting.";
     return "";
   };
 
@@ -221,7 +288,12 @@ export default function Workshop() {
       setSuccess(
         "Booking successful! We have received your request and will confirm it by email."
       );
-      setForm({ firstName: "", lastName: "", email: "", phone: "" });
+      if (loggedIn) {
+        await loadProfileIntoForm();
+      } else {
+        setForm({ firstName: "", lastName: "", email: "", phone: "" });
+      }
+      setPrivacyConsent(false);
       const calRes = await fetch(`${API_BASE_URL}/api/get_workshop_calendar`);
       const calText = await calRes.text();
       const calData = calText ? JSON.parse(calText) : {};
@@ -333,13 +405,14 @@ export default function Workshop() {
       />
       <section className="workshop-card">
         <div className="workshop-media">
-          <img src="/images/workshop.png" alt="MandalArt workshop" />
+          <img src="/images/workshop.png" alt="MandalArt workshop" className="workshop-media__img" />
         </div>
 
         <div className="workshop-content">
           <h2>Workshop booking</h2>
           <p className="workshop-sub">
-            Book a workshop session for <b>Saturdays</b> only. Calendar shows free and full slots.
+            Book a workshop session for <b>Saturdays</b> only. Calendar shows free and full slots; each
+            time slot lists <b>remaining / total</b> capacity (set in Admin → Workshop bookings).
             Changes or cancellations are allowed at least <b>{deadlineHours} hours</b> before the
             session starts (manage in your Profile).
           </p>
@@ -507,7 +580,9 @@ export default function Workshop() {
                   {sessionsForSelectedDate.map((s) => (
                     <option key={s.id} value={String(s.id)}>
                       {s.start_time} – {s.end_time}
-                      {s.is_full ? " (full)" : ` (${s.remaining} left)`}
+                      {s.is_full
+                        ? " (full)"
+                        : ` (${s.remaining}/${s.capacity} spots left)`}
                     </option>
                   ))}
                 </select>
@@ -556,6 +631,18 @@ export default function Workshop() {
                 />
               </div>
             </div>
+
+            <label className="consent-row">
+              <input
+                type="checkbox"
+                checked={privacyConsent}
+                onChange={(e) => setPrivacyConsent(e.target.checked)}
+              />
+              <span>
+                I agree to the processing of my personal data according to the{" "}
+                <Link to="/Privacy">Privacy Policy</Link>.
+              </span>
+            </label>
 
             {error && <div className="app-alert app-alert--error">{error}</div>}
             {success && <div className="app-alert app-alert--success">{success}</div>}

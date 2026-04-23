@@ -235,6 +235,10 @@ switch ($endpoint) {
         require_admin($currentUserEmail);
         require __DIR__ . '/controllers/admin_delete_gallery_image.php';
         break;
+    case 'admin_delete_gallery_images':
+        require_admin($currentUserEmail);
+        require __DIR__ . '/controllers/admin_delete_gallery_images.php';
+        break;
     case 'admin_upload_gallery_images':
         require_admin($currentUserEmail);
         require __DIR__ . '/controllers/admin_upload_gallery_images.php';

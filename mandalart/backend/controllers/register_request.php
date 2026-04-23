@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../services/register_service.php';
 require_once __DIR__ . '/../services/rate_limit_service.php';
+require_once __DIR__ . '/../services/sendgrid_mail.php';
 require_once __DIR__ . '/../core/jwt.php';
 
 $raw  = file_get_contents('php://input');
@@ -35,6 +36,13 @@ $result = process_register($name, $email, $password, $phone);
 
 if ($result['status'] !== 'success') {
     send_json($result['status'], $result['code']);
+}
+
+if (SENDGRID_API_KEY !== '') {
+    $mail = mandalart_send_registration_welcome($email, $name);
+    if (!$mail['ok']) {
+        error_log('mandalart welcome email: ' . json_encode($mail, JSON_UNESCAPED_UNICODE));
+    }
 }
 
 $token = JWT::generate_token($email);

@@ -150,6 +150,9 @@ function admin_list_workshop_sessions_with_bookings(): array
         );
         $stmt->execute([':sid' => $sid, ':cancelled' => 'cancelled']);
         $bookings = $stmt->fetchAll() ?: [];
+        $bookedCount = count_session_bookings($sid);
+        $cap = (int) $s['available_spots'];
+        $remaining = max(0, $cap - $bookedCount);
 
         $result[] = [
             'id' => $sid,
@@ -160,7 +163,9 @@ function admin_list_workshop_sessions_with_bookings(): array
             'booking_date' => substr((string) $s['start_datetime'], 0, 10),
             'start_time' => substr((string) $s['start_datetime'], 11, 5),
             'end_time' => substr((string) $s['end_datetime'], 11, 5),
-            'available_spots' => (int) $s['available_spots'],
+            'available_spots' => $cap,
+            'booked_count' => $bookedCount,
+            'remaining_spots' => $remaining,
             'bookings' => $bookings,
         ];
     }
@@ -289,6 +294,34 @@ function admin_update_session_booking_status(int $bookingId, string $status): bo
     $stmt->execute([':st' => $status, ':id' => $bookingId]);
 
     return true;
+}
+
+function get_session_booking_for_notification(int $bookingId): ?array
+{
+    if ($bookingId <= 0) {
+        return null;
+    }
+
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT
+            b.id,
+            b.status AS booking_status,
+            b.session_id,
+            COALESCE(u.name, b.guest_name) AS user_name,
+            COALESCE(u.email, b.guest_email) AS user_email,
+            ws.start_datetime,
+            w.title AS workshop_title
+         FROM bookings b
+         LEFT JOIN users u ON u.id = b.user_id
+         JOIN workshop_sessions ws ON ws.id = b.session_id
+         JOIN workshops w ON w.id = ws.workshop_id
+         WHERE b.id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $bookingId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
 }
 
 function admin_delete_session_booking(int $bookingId): ?int

@@ -39,5 +39,13 @@ if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $m)) {
 
 $result = process_order($data, $currentUserEmail);
 
-send_json($result['status'], $result['code']);
+$extra = [];
+if (!empty($result['product_id'])) {
+    $extra['product_id'] = $result['product_id'];
+}
+if (($result['status'] ?? '') === 'insufficient_stock') {
+    $extra['message'] = 'Not enough stock for one or more products. Refresh the shop and adjust quantities.';
+}
+
+send_json($result['status'], $result['code'], $extra);
 

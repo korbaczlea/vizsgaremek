@@ -120,25 +120,24 @@ function gallery_delete_image(int $id): bool
     return $stmt->execute([':id' => $id]);
 }
 
-function gallery_delete_images(array $ids): int
+function gallery_delete_images(array $ids): bool
 {
-    $normalized = [];
-    foreach ($ids as $id) {
-        $n = (int) $id;
+    $clean = [];
+    foreach ($ids as $x) {
+        $n = (int) $x;
         if ($n > 0) {
-            $normalized[$n] = true;
+            $clean[$n] = true;
         }
     }
-
-    $idList = array_keys($normalized);
-    if (count($idList) === 0) {
-        return 0;
+    $clean = array_keys($clean);
+    if (count($clean) === 0) {
+        return true;
     }
 
     $pdo = get_db();
-    $placeholders = implode(',', array_fill(0, count($idList), '?'));
+    $placeholders = implode(',', array_fill(0, count($clean), '?'));
     $stmt = $pdo->prepare("DELETE FROM gallery_images WHERE id IN ($placeholders)");
-    $stmt->execute($idList);
-    return (int) $stmt->rowCount();
+
+    return $stmt->execute($clean);
 }
 

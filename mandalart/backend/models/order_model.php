@@ -3,12 +3,39 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/user_model.php';
 
-function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): bool
+function create_order(array $customer, array $items, float $total, ?string $currentUserEmail = null): array
 {
     $pdo = get_db();
 
     try {
         $pdo->beginTransaction();
+
+        $byProduct = [];
+        foreach ($items as $item) {
+            $pid = (int) ($item['id'] ?? 0);
+            $qty = (int) ($item['qty'] ?? 1);
+            if ($pid <= 0 || $qty <= 0) {
+                continue;
+            }
+            if (!isset($byProduct[$pid])) {
+                $byProduct[$pid] = 0;
+            }
+            $byProduct[$pid] += $qty;
+        }
+        ksort($byProduct);
+        foreach ($byProduct as $pid => $need) {
+            $stmtLock = $pdo->prepare('SELECT stock_quantity FROM products WHERE id = :id FOR UPDATE');
+            $stmtLock->execute([':id' => $pid]);
+            $stock = $stmtLock->fetchColumn();
+            if ($stock === false) {
+                $pdo->rollBack();
+                return ['ok' => false, 'reason' => 'insufficient_stock', 'product_id' => $pid];
+            }
+            if ((int) $stock < $need) {
+                $pdo->rollBack();
+                return ['ok' => false, 'reason' => 'insufficient_stock', 'product_id' => $pid];
+            }
+        }
 
         $guestUserId = 1;
         if ($currentUserEmail) {
@@ -128,13 +155,30 @@ function create_order(array $customer, array $items, float $total, ?string $curr
             ]);
         }
 
+        foreach ($byProduct as $pid => $need) {
+            $stmtDec = $pdo->prepare(
+                'UPDATE products SET stock_quantity = stock_quantity - :q WHERE id = :id AND stock_quantity >= :q2'
+            );
+            $stmtDec->execute([':q' => $need, ':id' => $pid, ':q2' => $need]);
+            if ($stmtDec->rowCount() !== 1) {
+                $pdo->rollBack();
+                return ['ok' => false, 'reason' => 'insufficient_stock', 'product_id' => $pid];
+            }
+        }
+
         $pdo->commit();
-        return true;
+        return [
+            'ok' => true,
+            'order_id' => $orderId,
+            'order_number' => $orderNumber,
+            'email' => $email,
+            'full_name' => $fullName,
+        ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return false;
+        return ['ok' => false];
     }
 }
 
@@ -168,6 +212,25 @@ function admin_list_orders(): array
         );
         return $stmt->fetchAll() ?: [];
     }
+}
+
+function get_order_for_notification(int $orderId): ?array
+{
+    if ($orderId <= 0) {
+        return null;
+    }
+
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT id, order_number, email, full_name, order_status
+         FROM orders
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $orderId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
 }
 
 function admin_update_order_status(int $orderId, string $status): bool

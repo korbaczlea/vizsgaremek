@@ -16,6 +16,21 @@ if (!defined('MANDALART_DEV_EXPOSE_RESET_TOKEN')) {
     );
 }
 
+$sendgridKey = getenv('SENDGRID_API_KEY');
+define('SENDGRID_API_KEY', is_string($sendgridKey) ? trim($sendgridKey) : '');
+
+$mailFrom = getenv('MANDALART_MAIL_FROM');
+define(
+    'MANDALART_MAIL_FROM',
+    (is_string($mailFrom) && $mailFrom !== '') ? $mailFrom : 'noreply@mandalart.shop'
+);
+
+$publicOrigin = getenv('MANDALART_PUBLIC_ORIGIN');
+define(
+    'MANDALART_PUBLIC_ORIGIN',
+    (is_string($publicOrigin) && $publicOrigin !== '') ? rtrim($publicOrigin, '/') : ''
+);
+
 function get_db(): PDO {
     static $pdo = null;
     if ($pdo === null) {

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/workshop_settings.php';
 require_once __DIR__ . '/../models/workshop_session_model.php';
 require_once __DIR__ . '/../models/workshop_waitlist_model.php';
 require_once __DIR__ . '/../models/user_model.php';
+require_once __DIR__ . '/sendgrid_mail.php';
 
 function booking_get_owned(int $bookingId, string $userEmail, int $userId): ?array
 {
@@ -63,6 +64,18 @@ function process_workshop_waitlist_join(array $data): array
     }
     if ($rc !== 'success') {
         return ['status' => 'server_error', 'code' => 500];
+    }
+
+    if (SENDGRID_API_KEY !== '' && strcasecmp($email, 'guest@example.com') !== 0) {
+        $sent = mandalart_send_workshop_waitlist_joined_email(
+            $email,
+            $guestName,
+            (string) ($session['workshop_title'] ?? ''),
+            (string) ($session['start_datetime'] ?? '')
+        );
+        if (!$sent['ok']) {
+            error_log('mandalart workshop waitlist email: ' . json_encode($sent, JSON_UNESCAPED_UNICODE));
+        }
     }
 
     return ['status' => 'success', 'code' => 200];

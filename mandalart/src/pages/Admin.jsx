@@ -7,8 +7,36 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-const GALLERY_UPLOAD_CHUNK_SIZE = 50;
-const GALLERY_PUBLIC_PATH = "/public/gallery_images";
+/** Total size per gallery action (drag/drop or file picker), bytes. Matches PHP post_max_size. */
+const GALLERY_UPLOAD_BYTES_MAX = 500 * 1024 * 1024;
+/**
+ * Max body size per HTTP request (multipart is slightly larger than file sum).
+ * Cloudflare Free ~100 MB/request — staying under avoids 413 before traffic hits your VPS.
+ */
+const GALLERY_UPLOAD_CHUNK_BYTES_MAX = 90 * 1024 * 1024;
+
+function chunkGalleryFilesByRequestSize(files, maxChunkBytes) {
+  const list = Array.from(files || []);
+  const chunks = [];
+  let cur = [];
+  let sum = 0;
+  for (const f of list) {
+    if (f.size > maxChunkBytes) {
+      return {
+        error: `"${f.name}" is larger than ${Math.round(maxChunkBytes / (1024 * 1024))} MB per upload request. Compress it, or temporarily bypass strict proxies (e.g. turn off Cloudflare proxy for admin) to upload very large single files.`,
+      };
+    }
+    if (cur.length && sum + f.size > maxChunkBytes) {
+      chunks.push(cur);
+      cur = [];
+      sum = 0;
+    }
+    cur.push(f);
+    sum += f.size;
+  }
+  if (cur.length) chunks.push(cur);
+  return { chunks };
+}
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
@@ -32,6 +60,8 @@ export default function Admin() {
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [productPickerQuery, setProductPickerQuery] = useState("");
   const [newProduct, setNewProduct] = useState({
     name: "",
     slug: "",
@@ -50,7 +80,8 @@ export default function Admin() {
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadError, setGalleryUploadError] = useState("");
   const [galleryUploadSuccess, setGalleryUploadSuccess] = useState("");
-  const [selectedGalleryIds, setSelectedGalleryIds] = useState([]);
+  const [gallerySelectedIds, setGallerySelectedIds] = useState(() => new Set());
+  const [galleryBulkDeleting, setGalleryBulkDeleting] = useState(false);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -118,7 +149,15 @@ export default function Admin() {
         headers: { ...authHeaders() },
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
-      setProducts(data.products || []);
+      const loadedProducts = data.products || [];
+      setProducts(loadedProducts);
+      setSelectedProductId((prev) => {
+        if (!loadedProducts.length) return "";
+        if (prev && loadedProducts.some((p) => String(p.id) === String(prev))) {
+          return String(prev);
+        }
+        return String(loadedProducts[0].id);
+      });
     } catch {
       setProductsError("Failed to load products.");
     } finally {
@@ -134,11 +173,7 @@ export default function Admin() {
         headers: { ...authHeaders() },
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
-      const images = data.images || [];
-      setGallery(images);
-      setSelectedGalleryIds((prev) =>
-        prev.filter((id) => images.some((img) => Number(img.id) === Number(id)))
-      );
+      setGallery(data.images || []);
     } catch {
       setGalleryError("Failed to load gallery images.");
     } finally {
@@ -266,7 +301,7 @@ export default function Admin() {
   const updateWorkshopSession = async (sessionId, bookingDate, startTime, endTime, availableSpots) => {
     setWorkshopBookingsError("");
     try {
-      const { data } = await fetchJson(`${API_BASE_URL}/api/admin_update_workshop_session`, {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_update_workshop_session`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
@@ -277,10 +312,15 @@ export default function Admin() {
           available_spots: availableSpots,
         }),
       });
-      if (data.status !== "success") throw new Error("Failed");
+      if (!res.ok || data.status !== "success") {
+        const msg =
+          (typeof data?.message === "string" && data.message.trim()) ||
+          "Failed to update workshop session.";
+        throw new Error(msg);
+      }
       await loadWorkshopBookings();
-    } catch {
-      setWorkshopBookingsError("Failed to update workshop session.");
+    } catch (e) {
+      setWorkshopBookingsError(e instanceof Error ? e.message : "Failed to update workshop session.");
     }
   };
 
@@ -495,10 +535,43 @@ export default function Admin() {
     }
   };
 
+  const selectedProduct = useMemo(() => {
+    if (!products.length) return null;
+    if (!selectedProductId) return products[0];
+    return products.find((p) => String(p.id) === String(selectedProductId)) || products[0];
+  }, [products, selectedProductId]);
+
+  const productPickerOptions = useMemo(() => {
+    const q = productPickerQuery.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => {
+      const idText = String(p.id);
+      const nameText = String(p.name || "").toLowerCase();
+      return idText.includes(q) || nameText.includes(q);
+    });
+  }, [products, productPickerQuery]);
+
   const sortedGallery = useMemo(() => {
     const g = [...gallery];
     g.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
     return g;
+  }, [gallery]);
+
+  useEffect(() => {
+    if (tab !== "gallery") {
+      setGallerySelectedIds(new Set());
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    const valid = new Set(gallery.map((img) => img.id));
+    setGallerySelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      if (next.size === prev.size && [...next].every((id) => prev.has(id))) {
+        return prev;
+      }
+      return next;
+    });
   }, [gallery]);
 
   const updateGallery = async (id, patch) => {
@@ -526,27 +599,42 @@ export default function Admin() {
         body: JSON.stringify({ id }),
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
+      setGallerySelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       await loadGallery();
     } catch {
       setGalleryError("Failed to delete gallery image.");
     }
   };
 
-  const deleteSelectedGalleryImages = async () => {
-    if (!selectedGalleryIds.length) return;
-    if (!confirm(`Remove ${selectedGalleryIds.length} selected image(s) from gallery list?`)) return;
+  const deleteGalleryImagesBulk = async () => {
+    const ids = [...gallerySelectedIds];
+    if (!ids.length) return;
+    if (
+      !confirm(
+        `Remove ${ids.length} image(s) from the gallery list? (Files stay on disk)`
+      )
+    ) {
+      return;
+    }
     setGalleryError("");
+    setGalleryBulkDeleting(true);
     try {
-      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_delete_gallery_image`, {
+      const { res, data } = await fetchJson(`${API_BASE_URL}/api/admin_delete_gallery_images`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ ids: selectedGalleryIds }),
+        body: JSON.stringify({ ids }),
       });
       if (!res.ok || data.status !== "success") throw new Error("Failed");
-      setSelectedGalleryIds([]);
+      setGallerySelectedIds(new Set());
       await loadGallery();
     } catch {
-      setGalleryError("Failed to delete selected gallery images.");
+      setGalleryError("Failed to delete gallery images.");
+    } finally {
+      setGalleryBulkDeleting(false);
     }
   };
 
@@ -556,14 +644,41 @@ export default function Admin() {
 
     setGalleryUploadError("");
     setGalleryUploadSuccess("");
+
+    for (const f of list) {
+      if (f.size > GALLERY_UPLOAD_BYTES_MAX) {
+        setGalleryUploadError(
+          `"${f.name}" is larger than 500 MB. Compress it or upload a smaller file.`
+        );
+        return;
+      }
+    }
+
+    const totalBytes = list.reduce((sum, f) => sum + f.size, 0);
+    if (totalBytes > GALLERY_UPLOAD_BYTES_MAX) {
+      setGalleryUploadError(
+        `Total size is ${(totalBytes / (1024 * 1024)).toFixed(1)} MB; maximum is 500 MB in one upload. Upload in multiple batches.`
+      );
+      return;
+    }
+
+    const { chunks, error: chunkErr } = chunkGalleryFilesByRequestSize(
+      list,
+      GALLERY_UPLOAD_CHUNK_BYTES_MAX
+    );
+    if (chunkErr) {
+      setGalleryUploadError(chunkErr);
+      return;
+    }
+
     setGalleryUploading(true);
 
     try {
       let totalUploaded = 0;
       let totalSkipped = 0;
 
-      for (let offset = 0; offset < list.length; offset += GALLERY_UPLOAD_CHUNK_SIZE) {
-        const chunk = list.slice(offset, offset + GALLERY_UPLOAD_CHUNK_SIZE);
+      for (let c = 0; c < chunks.length; c++) {
+        const chunk = chunks[c];
         const formData = new FormData();
         for (const f of chunk) {
           formData.append("files[]", f, f.name);
@@ -583,12 +698,28 @@ export default function Admin() {
           data = {};
         }
 
-        if (!res.ok || data.status !== "success") {
-          const msg = data?.message || "Failed to upload images.";
+        if (res.status === 413) {
           throw new Error(
-            list.length > GALLERY_UPLOAD_CHUNK_SIZE
-              ? `${msg} (stopped after ${totalUploaded} OK; try uploading the rest in another batch.)`
-              : msg
+            "Upload rejected: payload too large (413). Your host or CDN (e.g. Cloudflare ~100 MB per request) blocked this batch. Deploy the latest nginx config (512 MB body) or upload fewer / smaller files per attempt."
+          );
+        }
+
+        if (!res.ok || data.status !== "success") {
+          const msg =
+            (typeof data?.message === "string" && data.message.trim()) ||
+            "Failed to upload images.";
+          const skipped = Array.isArray(data?.skipped) ? data.skipped : [];
+          const hint =
+            skipped.length > 0
+              ? ` (${skipped
+                  .slice(0, 3)
+                  .map((s) => s.filename || "file")
+                  .join(", ")}${skipped.length > 3 ? "…" : ""})`
+              : "";
+          throw new Error(
+            chunks.length > 1
+              ? `${msg}${hint} (stopped after batch ${c + 1}; ${totalUploaded} file(s) had already been saved.)`
+              : `${msg}${hint}`
           );
         }
 
@@ -597,7 +728,7 @@ export default function Admin() {
       }
 
       setGalleryUploadSuccess(
-        `Upload successful: ${totalUploaded} file(s) added${totalSkipped ? `, ${totalSkipped} skipped` : ""}.`
+        `Upload successful: ${totalUploaded} file(s) added${totalSkipped ? `, ${totalSkipped} skipped` : ""}${chunks.length > 1 ? ` (${chunks.length} requests).` : "."}`
       );
 
       await loadGallery();
@@ -709,7 +840,7 @@ export default function Admin() {
                 <option value="">Select image from gallery...</option>
                 {sortedGallery.map((img) => {
                   const label = img.title ? `${img.title} (${img.filename})` : img.filename;
-                  const value = `${GALLERY_PUBLIC_PATH}/${img.filename}`;
+                  const value = `/gallery_images/${img.filename}`;
                   return (
                     <option key={img.id} value={value}>
                       {label}
@@ -738,85 +869,157 @@ export default function Admin() {
           <hr className="admin-divider" />
 
           <h4>Edit existing</h4>
-          <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
-            {products.map((p) => (
-              <div key={p.id} className="admin-productCard">
-                <div className="admin-productCard__head">
-                  <b>#{p.id}</b>
-                  <button type="button" className="admin-btn admin-btn--danger" onClick={() => deleteProduct(p.id)}>
-                    Delete
-                  </button>
-                </div>
-
-                <div className="admin-grid2" style={{ marginTop: 10 }}>
-                  <input
-                    defaultValue={p.name}
-                    onBlur={(e) => updateProductField(p.id, { name: e.target.value })}
-                  />
-                  <input
-                    defaultValue={p.slug}
-                    onBlur={(e) => updateProductField(p.id, { slug: e.target.value })}
-                  />
-                </div>
-
-                <textarea
-                  defaultValue={p.description || ""}
-                  rows={3}
-                  style={{ width: "100%", marginTop: 10, boxSizing: "border-box" }}
-                  onBlur={(e) => updateProductField(p.id, { description: e.target.value })}
+          {products.length ? (
+            <>
+              <div className="admin-form" style={{ maxWidth: 420, marginBottom: 12 }}>
+                <label className="admin-fieldLabel" htmlFor="admin-product-search">
+                  Quick search (name or ID)
+                </label>
+                <input
+                  id="admin-product-search"
+                  type="search"
+                  placeholder="Type product name or ID..."
+                  value={productPickerQuery}
+                  onChange={(e) => setProductPickerQuery(e.target.value)}
                 />
-
-                <div className="admin-grid3" style={{ marginTop: 10 }}>
-                  <input
-                    type="number"
-                    step="0.01"
-                    defaultValue={p.price}
-                    onBlur={(e) => updateProductField(p.id, { price: Number(e.target.value) })}
-                  />
-                  <input
-                    type="number"
-                    defaultValue={p.stock_quantity}
-                    onBlur={(e) => updateProductField(p.id, { stock_quantity: Number(e.target.value) })}
-                  />
-                  <select
-                    defaultValue={p.is_active ? 1 : 0}
-                    onChange={(e) => updateProductField(p.id, { is_active: Number(e.target.value) })}
-                  >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
-                  </select>
-                </div>
-
-                <div className="admin-grid2" style={{ marginTop: 10 }}>
-                  <input
-                    defaultValue={p.category || ""}
-                    onBlur={(e) => updateProductField(p.id, { category: e.target.value })}
-                  />
-                  <select
-                    defaultValue={p.image_url || ""}
-                    disabled={galleryLoading && sortedGallery.length === 0}
-                    onChange={(e) => updateProductField(p.id, { image_url: e.target.value })}
-                  >
-                    <option value="">No image</option>
-                    {sortedGallery.map((img) => {
-                      const label = img.title ? `${img.title} (${img.filename})` : img.filename;
-                      const value = `${GALLERY_PUBLIC_PATH}/${img.filename}`;
-                      return (
-                        <option key={img.id} value={value}>
-                          {label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                {p.image_url ? (
-                  <div className="admin-productImagePreview">
-                    <img src={p.image_url} alt="Selected product preview" />
-                  </div>
-                ) : null}
+                <label className="admin-fieldLabel" htmlFor="admin-product-select">
+                  Select product
+                </label>
+                <select
+                  id="admin-product-select"
+                  value={
+                    productPickerOptions.some((p) => String(p.id) === String(selectedProduct?.id))
+                      ? String(selectedProduct?.id || "")
+                      : ""
+                  }
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                >
+                  {!productPickerOptions.length ? (
+                    <option value="" disabled>
+                      No matching products
+                    </option>
+                  ) : null}
+                  {productPickerOptions.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      #{p.id} - {p.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))}
-          </div>
+
+              {selectedProduct ? (
+                <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
+                  <div key={selectedProduct.id} className="admin-productCard">
+                    <div className="admin-productCard__head">
+                      <b>#{selectedProduct.id}</b>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--danger"
+                        onClick={() => deleteProduct(selectedProduct.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="admin-grid2" style={{ marginTop: 10 }}>
+                      <input
+                        defaultValue={selectedProduct.name}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, { name: e.target.value })
+                        }
+                      />
+                      <input
+                        defaultValue={selectedProduct.slug}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, { slug: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <textarea
+                      defaultValue={selectedProduct.description || ""}
+                      rows={3}
+                      style={{ width: "100%", marginTop: 10, boxSizing: "border-box" }}
+                      onBlur={(e) =>
+                        updateProductField(selectedProduct.id, { description: e.target.value })
+                      }
+                    />
+
+                    <div className="admin-grid3" style={{ marginTop: 10 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        defaultValue={selectedProduct.price}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, {
+                            price: Number(e.target.value),
+                          })
+                        }
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Stock (inventory)"
+                        title="Shown on Home featured products and Order page"
+                        defaultValue={selectedProduct.stock_quantity}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, {
+                            stock_quantity: Number(e.target.value),
+                          })
+                        }
+                      />
+                      <select
+                        defaultValue={selectedProduct.is_active ? 1 : 0}
+                        onChange={(e) =>
+                          updateProductField(selectedProduct.id, {
+                            is_active: Number(e.target.value),
+                          })
+                        }
+                      >
+                        <option value={1}>Active</option>
+                        <option value={0}>Inactive</option>
+                      </select>
+                    </div>
+
+                    <div className="admin-grid2" style={{ marginTop: 10 }}>
+                      <input
+                        defaultValue={selectedProduct.category || ""}
+                        onBlur={(e) =>
+                          updateProductField(selectedProduct.id, { category: e.target.value })
+                        }
+                      />
+                      <select
+                        defaultValue={selectedProduct.image_url || ""}
+                        disabled={galleryLoading && sortedGallery.length === 0}
+                        onChange={(e) =>
+                          updateProductField(selectedProduct.id, { image_url: e.target.value })
+                        }
+                      >
+                        <option value="">No image</option>
+                        {sortedGallery.map((img) => {
+                          const label = img.title ? `${img.title} (${img.filename})` : img.filename;
+                          const value = `/gallery_images/${img.filename}`;
+                          return (
+                            <option key={img.id} value={value}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    {selectedProduct.image_url ? (
+                      <div className="admin-productImagePreview">
+                        <img src={selectedProduct.image_url} alt="Selected product preview" />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="admin-muted">No products available yet.</p>
+          )}
         </section>
       ) : null}
 
@@ -1064,7 +1267,14 @@ export default function Admin() {
                         {s.booking_date} {s.start_time} - {s.end_time}
                       </div>
                       <div className="admin-muted" style={{ fontSize: 13 }}>
-                        Available spots: <b>{s.available_spots}</b>
+                        Capacity (max spots): <b>{s.available_spots}</b>
+                        {" · "}
+                        Booked: <b>{s.booked_count ?? 0}</b>
+                        {" · "}
+                        Remaining: <b>{s.remaining_spots ?? "—"}</b>
+                      </div>
+                      <div className="admin-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                        Set capacity in the field below; it cannot be lower than active bookings.
                       </div>
                     </div>
                     <button type="button" className="admin-btn admin-btn--danger" onClick={() => deleteWorkshopSession(s.id)}>
@@ -1078,7 +1288,7 @@ export default function Admin() {
                       <input type="date" defaultValue={s.booking_date} id={`ws_date_${s.id}`} />
                     </div>
                     <div className="admin-fieldStack">
-                      <label className="admin-fieldLabel">Available spots</label>
+                      <label className="admin-fieldLabel">Capacity / stock (max spots)</label>
                       <input
                         type="number"
                         min="1"
@@ -1196,7 +1406,9 @@ export default function Admin() {
           {galleryLoading ? <p className="admin-loading">Loading...</p> : null}
 
           <p className="admin-hint">
-            Drag & drop to upload images. The files are saved to <code>public/gallery_images</code> and added to the database automatically.
+            Drag & drop or choose multiple images (up to <b>500 MB total</b> per action; large sets are sent in
+            several ~90 MB requests so CDNs like Cloudflare do not return 413). Files go to{" "}
+            <code>public/gallery_images</code> and are registered in the database automatically.
           </p>
 
           <div
@@ -1258,50 +1470,78 @@ export default function Admin() {
             </div>
           </div>
 
-          <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          {sortedGallery.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontWeight: 800,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    sortedGallery.length > 0 &&
+                    sortedGallery.every((img) => gallerySelectedIds.has(img.id))
+                  }
+                  onChange={() => {
+                    const allSelected =
+                      sortedGallery.length > 0 &&
+                      sortedGallery.every((img) => gallerySelectedIds.has(img.id));
+                    if (allSelected) {
+                      setGallerySelectedIds(new Set());
+                    } else {
+                      setGallerySelectedIds(new Set(sortedGallery.map((i) => i.id)));
+                    }
+                  }}
+                />
+                Select all
+              </label>
               <button
                 type="button"
                 className="admin-btn admin-btn--ghost"
-                onClick={() => {
-                  if (selectedGalleryIds.length === sortedGallery.length) {
-                    setSelectedGalleryIds([]);
-                    return;
-                  }
-                  setSelectedGalleryIds(sortedGallery.map((img) => img.id));
-                }}
-                disabled={!sortedGallery.length}
+                disabled={gallerySelectedIds.size === 0 || galleryBulkDeleting}
+                onClick={deleteGalleryImagesBulk}
               >
-                {selectedGalleryIds.length === sortedGallery.length && sortedGallery.length
-                  ? "Unselect all"
-                  : "Select all"}
-              </button>
-              <button
-                type="button"
-                className="admin-btn admin-btn--danger"
-                onClick={deleteSelectedGalleryImages}
-                disabled={!selectedGalleryIds.length}
-              >
-                Delete selected ({selectedGalleryIds.length})
+                {galleryBulkDeleting
+                  ? "Removing…"
+                  : `Remove selected (${gallerySelectedIds.size})`}
               </button>
             </div>
+          ) : null}
+
+          <div className="admin-form admin-form--wide" style={{ display: "grid", gap: 12 }}>
             {sortedGallery.map((img) => (
               <div key={img.id} className="admin-galleryRow">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div className="admin-galleryRowThumb">
                   <input
                     type="checkbox"
-                    checked={selectedGalleryIds.includes(img.id)}
-                    onChange={(e) =>
-                      setSelectedGalleryIds((prev) =>
-                        e.target.checked
-                          ? (prev.includes(img.id) ? prev : [...prev, img.id])
-                          : prev.filter((id) => id !== img.id)
-                      )
-                    }
-                    aria-label={`Select ${img.filename}`}
+                    checked={gallerySelectedIds.has(img.id)}
+                    onChange={() => {
+                      setGallerySelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(img.id)) next.delete(img.id);
+                        else next.add(img.id);
+                        return next;
+                      });
+                    }}
+                    aria-label={`Select ${img.filename} for bulk remove`}
                   />
+                  <img src={`/gallery_images/${img.filename}`} alt={img.title || img.filename} />
                 </div>
-                <img src={`${GALLERY_PUBLIC_PATH}/${img.filename}`} alt={img.title || img.filename} />
                 <div style={{ display: "grid", gap: 8 }}>
                   <div className="admin-grid3">
                     <input

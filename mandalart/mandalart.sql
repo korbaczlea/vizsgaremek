@@ -52,6 +52,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `get_all_products_proc` ()   BEGIN
         p.description,
         p.price,
         p.category,
+        p.stock_quantity,
         (
             SELECT pi.image_path
             FROM product_images pi
